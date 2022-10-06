@@ -9,4 +9,4 @@ edition = "2021"
 
 [[bin]]
 name = "racf"
-path = "main.rs"
+path = "racf.rs"
