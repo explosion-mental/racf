@@ -13,7 +13,7 @@ fn main() {
         exit(1);
     }
 
-	for i in 1..argc {
+	for mut i in 1..argc {
         if argv[i] == "-v" || argv[i] == "--version" {
             println!("racf-{}", VERSION);
             exit(0);
@@ -35,8 +35,10 @@ fn main() {
 			usage();
 		/* these options take one argument */
 		} else if argv[i] == "-g" || argv[i] == "--governor" { /* set governor */
-			//setgovernor(argv[i + 1]);
             //no ++ or -- huh?
+            i += 1;
+			setgovernor(&argv[i]);
+            i -= 1;
 			exit(0);
 		} else {
 			usage();
@@ -64,8 +66,8 @@ fn turbo(i: i32) {
     println!("turbo()");
 }
 
-fn setgovernor(gov: String) {
-    println!("setgovernor()");
+fn setgovernor(gov: &String) {
+    println!("setgovernor(\"{}\")", gov);
 }
 
 fn usage() {
