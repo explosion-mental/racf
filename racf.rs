@@ -1,17 +1,15 @@
 use std::env;
 use std::process::exit;
+use std::thread::sleep;
+use std::time::Duration;
 
 static VERSION: u32 = 0;
 static CPUS: u32 = 8;
+static interval: u64 = 10;
 
 fn main() {
     let argv: Vec<String> = env::args().collect();
     let argc = argv.len();
-
-    if argv.len() == 1 {
-        println!("No arguments");
-        exit(1);
-    }
 
 	for mut i in 1..argc {
         if argv[i] == "-v" || argv[i] == "--version" {
@@ -45,6 +43,11 @@ fn main() {
         }
 
     }
+
+	while true {
+		run();
+        sleep(Duration::from_secs(interval));
+	}
 }
 
 fn info() {
