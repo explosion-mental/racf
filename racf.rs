@@ -3,6 +3,12 @@ use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
 
+/* macros */
+macro_rules! die {
+    ($fmt:expr) => ({ print!(concat!($fmt, "\n")); std::process::exit(-1) });
+    ($fmt:expr, $($arg:tt)*) => ({ print!(concat!($fmt, "\n"), $($arg)*); std::process::exit(-1) });
+}
+
 static VERSION: u32 = 0;
 static CPUS: u32 = 8;
 static interval: u64 = 10;
@@ -74,7 +80,6 @@ fn setgovernor(gov: &String) {
 }
 
 fn usage() {
-    println!("usage()");
-    exit(0);
+	die!("usage: sacf [-blrtTv] [-g governor]");
 }
 
