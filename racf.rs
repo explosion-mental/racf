@@ -1,3 +1,4 @@
+use glob::glob;
 use std::env;
 use std::process::exit;
 use std::thread::sleep;
@@ -60,21 +61,34 @@ fn main() {
 
     }
 
-	while true {
+	//while true {
 		run();
-        sleep(Duration::from_secs(interval));
-	}
+        //sleep(Duration::from_secs(interval));
+	//}
 }
 
 fn info() {
 	println!("Cores: {}", CPUS);
-	println!("AC adapter status: {}", "ischarging");
+	println!("AC adapter status: {}", ischarging());
 	println!("Average system load: {}", "avgload");
 	println!("System temperature: {} °C", "avgtemp");
 }
 
 fn run() {
     println!("run()");
+}
+
+fn ischarging() -> bool {
+    for entry in glob("/sys/class/power_supply/A*/online").expect("Failed to read glob pattern") {
+        match entry {
+            Ok(path) => return true,
+
+            // if the path matched but was unreadable,
+            // thereby preventing its contents from matching
+            Err(e) => println!("{:?}", e),
+        }
+    }
+    false
 }
 
 fn daemonize() {
