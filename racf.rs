@@ -21,12 +21,11 @@ const TurboPath: [&str; 3] = [
 ];
 
 static VERSION: u32 = 0;
-static CPUS: u32 = 8;
-static interval: u64 = 10;
 
 fn main() {
     let argv: Vec<String> = env::args().collect();
     let argc = argv.len();
+    let interval = 10;
 
 	for mut i in 1..argc {
 		/* these options take no arguments */
@@ -71,7 +70,8 @@ fn main() {
 }
 
 fn info() {
-	println!("Cores: {}", CPUS);
+    let cpus = 8;
+	println!("Cores: {}", cpus);
 	println!("AC adapter status: {}", ischarging());
 	println!("Average system load: {}", "avgload");
 	println!("System temperature: {} °C", "avgtemp");
