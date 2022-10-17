@@ -66,7 +66,7 @@ fn main() {
 	loop {
 		run();
         sleep(Duration::from_secs(interval));
-	}
+	};
 }
 
 fn info() {
