@@ -62,10 +62,12 @@ fn main() {
 
     }
 
-	//while true {
+    die!("end of main()");
+
+	loop {
 		run();
-        //sleep(Duration::from_secs(interval));
-	//}
+        sleep(Duration::from_secs(interval));
+	}
 }
 
 fn info() {
