@@ -29,6 +29,7 @@ fn main() {
     let argc = argv.len();
 
 	for mut i in 1..argc {
+		/* these options take no arguments */
         if argv[i] == "-v" || argv[i] == "--version" {
             println!("racf-{}", VERSION);
             exit(0);
