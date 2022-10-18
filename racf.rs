@@ -19,7 +19,7 @@ static VERSION: u32 = 0;
 fn main() {
     let argv: Vec<String> = env::args().collect();
     let argc = argv.len();
-    let interval = 10;
+    let _interval = 10;
 
 	for i in 1..argc {
 		/* these options take no arguments */
@@ -56,7 +56,7 @@ fn main() {
 
 	loop {
 		run();
-        sleep(Duration::from_secs(interval));
+        sleep(Duration::from_secs(_interval));
 	};
 }
 
