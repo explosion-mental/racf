@@ -6,6 +6,7 @@ use std::time::Duration;
 use std::fs::File;
 use std::fs;
 use std::io::prelude::*;
+use std::path::Path;
 
 /* macros */
 macro_rules! die {
@@ -114,8 +115,22 @@ fn daemonize() {
     println!("daemonize()");
 }
 
-fn turbo(i: i32) {
-    println!("turbo({})", i);
+fn turbo(on: i8) {
+    let turbopath;
+    let intelpstate = "/sys/devices/system/cpu/intel_pstate/no_turbo";
+    let cpufreq = "/sys/devices/system/cpu/cpufreq/boost";
+
+    if Path::new(intelpstate).exists() {
+        turbopath = intelpstate;
+    } else if Path::new(cpufreq).exists() {
+        turbopath = cpufreq;
+    } else { /* turbo boost is not supported */
+        return;
+    }
+
+	/* change state of turbo boost */
+    let mut fp = File::create(turbopath).expect("unable to create file");
+    fp.write_all(on.to_string().as_bytes()).expect("Could not write");
 }
 
 fn setgovernor(gov: &String) {
