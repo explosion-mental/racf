@@ -10,16 +10,6 @@ macro_rules! die {
     ($fmt:expr, $($arg:tt)*) => ({ print!(concat!($fmt, "\n"), $($arg)*); std::process::exit(-1) });
 }
 
-/* enums */
-enum TurboPathIdx { INTEL, CPUFREQ, BROKEN }
-enum TurboAction { Always, Never, Auto }
-
-const TurboPath: [&str; 3] = [
-	"/sys/devices/system/cpu/intel_pstate/no_turbo",
-	"/sys/devices/system/cpu/cpufreq/boost",
-	"", /* no turbo boost support */
-];
-
 static VERSION: u32 = 0;
 
 fn main() {
