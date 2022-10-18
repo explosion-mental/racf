@@ -93,7 +93,15 @@ fn info() {
 }
 
 fn run() {
-    println!("run()");
+    let charging = ischarging();
+    let gov = if charging { "performance" } else { "powersafe" };
+    let tb  = if charging { 1 } else { 0 };
+    let cpus = 8;
+	let _threshold = (75 * cpus) / 100;
+
+	setgovernor(&gov.to_string());
+    turbo(tb);
+
 }
 
 fn ischarging() -> bool {
