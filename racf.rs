@@ -3,6 +3,9 @@ use std::env;
 use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
+use std::fs::File;
+use std::fs;
+use std::io::prelude::*;
 
 /* macros */
 macro_rules! die {
@@ -57,27 +60,36 @@ fn main() {
 }
 
 fn info() {
-    let cpus = 8;
+    let cpus   = 8; /* TODO nproc() */
 	let first  = "/sys/devices/system/cpu/cpu";
 	let scgov  = "/cpufreq/scaling_governor";
 	let scfreq = "/cpufreq/scaling_cur_freq";
 	let scdvr  = "/cpufreq/scaling_driver";
-    let mut path = String::new();
 
 	println!("Cores: {}", cpus);
 	println!("AC adapter status: {}", if ischarging() { "Charging" } else { "Disconnected" });
 	println!("Average system load: {}", "avgload");
 	println!("System temperature: {} °C", "avgtemp");
-    for i in 0..=cpus {
+    for i in 0..cpus {
+        let (mut governor,mut driver, mut freq) = (String::new(), String::new(), String::new());
 		/* governor */
-        path = format!("{}{}{}", first, i, scgov);
-        println!("{}", path);
+        File::open(format!("{}{}{}", first, i, scgov))
+            .expect("Cannot open file.")
+            .read_to_string(&mut governor)
+            .expect("Cannot read file.");
 
 		/* current frequency */
-        path = format!("{}{}{}", first, i, scfreq);
+        //XXX read without open()? sus
+        let freq = fs::read_to_string(format!("{}{}{}", first, i, scfreq))
+            .expect("Cannot read file.");
 
 		/* driver */
-        path = format!("{}{}{}", first, i, scdvr);
+        File::open(format!("{}{}{}", first, i, scdvr))
+            .expect("Cannot open file.")
+            .read_to_string(&mut driver)
+            .expect("Cannot read file.");
+
+		println!("CPU{}\t{}\t{}\t{}", i, governor.trim_end(), driver.trim_end(), freq.trim_end());
     }
 }
 
