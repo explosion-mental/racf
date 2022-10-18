@@ -38,8 +38,6 @@ fn main() {
         } else if argv[i] == "-r" || argv[i] == "--run-once" { /* turbo off */
 			run();
 			exit(0);
-        } else if argv[i] == "-b" || argv[i] == "--daemon" { /* turbo off */
-			daemonize();
 		} else if i + 1 == argc {
 			usage();
 		/* these options take one argument */
@@ -109,10 +107,6 @@ fn ischarging() -> bool {
         }
     }
     false
-}
-
-fn daemonize() {
-    println!("daemonize()");
 }
 
 fn turbo(on: i8) {
