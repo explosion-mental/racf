@@ -17,7 +17,7 @@ fn main() {
     let argc = argv.len();
     let interval = 10;
 
-	for mut i in 1..argc {
+	for i in 1..argc {
 		/* these options take no arguments */
         if argv[i] == "-v" || argv[i] == "--version" {
             println!("racf-{}", VERSION);
@@ -40,10 +40,7 @@ fn main() {
 			usage();
 		/* these options take one argument */
 		} else if argv[i] == "-g" || argv[i] == "--governor" { /* set governor */
-            //no ++ or -- huh?
-            i += 1;
-			setgovernor(&argv[i]);
-            i -= 1;
+			setgovernor(&argv[i + 1]);
 			exit(0);
 		} else {
 			usage();
@@ -74,7 +71,7 @@ fn run() {
 fn ischarging() -> bool {
     for entry in glob("/sys/class/power_supply/A*/online").expect("Failed to read glob pattern") {
         match entry {
-            Ok(path) => return true,
+            Ok(_path) => return true,
 
             // if the path matched but was unreadable,
             // thereby preventing its contents from matching
@@ -89,7 +86,7 @@ fn daemonize() {
 }
 
 fn turbo(i: i32) {
-    println!("turbo()");
+    println!("turbo({})", i);
 }
 
 fn setgovernor(gov: &String) {
