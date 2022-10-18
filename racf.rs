@@ -4,7 +4,6 @@ use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
 use std::fs::File;
-use std::fs;
 use std::io::prelude::*;
 use std::path::Path;
 
@@ -70,7 +69,7 @@ fn info() {
 	println!("Average system load: {}", "avgload");
 	println!("System temperature: {} °C", "avgtemp");
     for i in 0..cpus {
-        let (mut governor, mut driver) = (String::new(), String::new());
+        let (mut governor, mut driver, mut freq) = (String::new(), String::new(), String::new());
 		/* governor */
         File::open(format!("{}{}{}", first, i, scgov))
             .expect("Cannot open file.")
@@ -78,8 +77,9 @@ fn info() {
             .expect("Cannot read file.");
 
 		/* current frequency */
-        //XXX read without open()? sus
-        let freq = fs::read_to_string(format!("{}{}{}", first, i, scfreq))
+        File::open(format!("{}{}{}", first, i, scfreq))
+            .expect("Cannot open file.")
+            .read_to_string(&mut freq)
             .expect("Cannot read file.");
 
 		/* driver */
