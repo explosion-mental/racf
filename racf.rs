@@ -72,7 +72,7 @@ fn main() {
 fn info() {
     let cpus = 8;
 	println!("Cores: {}", cpus);
-	println!("AC adapter status: {}", ischarging());
+	println!("AC adapter status: {}", if ischarging() { "Charging" } else { "Disconnected" });
 	println!("Average system load: {}", "avgload");
 	println!("System temperature: {} °C", "avgtemp");
 }
