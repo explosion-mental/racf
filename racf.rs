@@ -71,7 +71,7 @@ fn info() {
 	println!("Average system load: {}", "avgload");
 	println!("System temperature: {} °C", "avgtemp");
     for i in 0..cpus {
-        let (mut governor,mut driver, mut freq) = (String::new(), String::new(), String::new());
+        let (mut governor, mut driver) = (String::new(), String::new());
 		/* governor */
         File::open(format!("{}{}{}", first, i, scgov))
             .expect("Cannot open file.")
@@ -119,7 +119,14 @@ fn turbo(i: i32) {
 }
 
 fn setgovernor(gov: &String) {
-    println!("setgovernor(\"{}\")", gov);
+    let cpus   = 8; /* TODO nproc() */
+
+    for i in 0..cpus {
+        let mut fp = File::create(
+            format!("/sys/devices/system/cpu/cpu{}/cpufreq/scaling_governor", i)
+            ).expect("unable to create file");
+        fp.write_all(gov.as_bytes()).expect("Could not write");
+	}
 }
 
 fn usage() {
