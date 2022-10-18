@@ -58,10 +58,27 @@ fn main() {
 
 fn info() {
     let cpus = 8;
+	let first  = "/sys/devices/system/cpu/cpu";
+	let scgov  = "/cpufreq/scaling_governor";
+	let scfreq = "/cpufreq/scaling_cur_freq";
+	let scdvr  = "/cpufreq/scaling_driver";
+    let mut path = String::new();
+
 	println!("Cores: {}", cpus);
 	println!("AC adapter status: {}", if ischarging() { "Charging" } else { "Disconnected" });
 	println!("Average system load: {}", "avgload");
 	println!("System temperature: {} °C", "avgtemp");
+    for i in 0..=cpus {
+		/* governor */
+        path = format!("{}{}{}", first, i, scgov);
+        println!("{}", path);
+
+		/* current frequency */
+        path = format!("{}{}{}", first, i, scfreq);
+
+		/* driver */
+        path = format!("{}{}{}", first, i, scdvr);
+    }
 }
 
 fn run() {
