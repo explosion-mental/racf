@@ -9,8 +9,8 @@ use std::path::Path;
 
 /* macros */
 macro_rules! die {
-    ($fmt:expr) => ({ print!(concat!($fmt, "\n")); std::process::exit(-1) });
-    ($fmt:expr, $($arg:tt)*) => ({ print!(concat!($fmt, "\n"), $($arg)*); std::process::exit(-1) });
+    ($fmt:expr) => ({ print!(concat!($fmt, "\n")); std::process::exit(1) });
+    ($fmt:expr, $($arg:tt)*) => ({ print!(concat!($fmt, "\n"), $($arg)*); std::process::exit(1) });
 }
 
 fn main() {
@@ -44,7 +44,6 @@ fn main() {
 		} else {
 			usage();
         }
-
     }
 
     die!("end of main()");
@@ -57,7 +56,7 @@ fn main() {
 
 fn info() {
     let cpus   = nproc();
-	let first  = "/sys/devices/system/cpu/cpu";
+	let path1  = "/sys/devices/system/cpu/cpu";
 	let scgov  = "/cpufreq/scaling_governor";
 	let scfreq = "/cpufreq/scaling_cur_freq";
 	let scdvr  = "/cpufreq/scaling_driver";
@@ -92,10 +91,10 @@ fn info() {
 }
 
 fn run() {
+    let cpus = nproc();
     let charging = ischarging();
     let gov = if charging { "performance" } else { "powersafe" };
     let tb  = if charging { 1 } else { 0 };
-    let cpus = nproc();
 	let _threshold = (75 * cpus) / 100;
 
 	setgovernor(&gov.to_string());
@@ -135,7 +134,7 @@ fn turbo(on: i8) {
 }
 
 fn setgovernor(gov: &String) {
-    let cpus   = nproc();
+    let cpus = nproc();
 
     for i in 0..cpus {
         let mut fp = File::create(
