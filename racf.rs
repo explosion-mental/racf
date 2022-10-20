@@ -13,8 +13,6 @@ macro_rules! die {
     ($fmt:expr, $($arg:tt)*) => ({ print!(concat!($fmt, "\n"), $($arg)*); std::process::exit(-1) });
 }
 
-static VERSION: u32 = 0;
-
 fn main() {
     let argv: Vec<String> = env::args().collect();
     let argc = argv.len();
@@ -23,7 +21,7 @@ fn main() {
 	for i in 1..argc {
 		/* these options take no arguments */
         if argv[i] == "-v" || argv[i] == "--version" {
-            println!("racf-{}", VERSION);
+            println!("racf-VERSION"); // TODO version
             exit(0);
         } else if argv[i] == "-l" || argv[i] == "--list" { /* stats about the system */
             info();
