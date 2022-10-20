@@ -56,7 +56,7 @@ fn main() {
 }
 
 fn info() {
-    let cpus   = 8; /* TODO nproc() */
+    let cpus   = nproc();
 	let first  = "/sys/devices/system/cpu/cpu";
 	let scgov  = "/cpufreq/scaling_governor";
 	let scfreq = "/cpufreq/scaling_cur_freq";
@@ -66,6 +66,7 @@ fn info() {
 	println!("AC adapter status: {}", if ischarging() { "Charging" } else { "Disconnected" });
 	println!("Average system load: {}", "avgload");
 	println!("System temperature: {} °C", "avgtemp");
+
     for i in 0..cpus {
         let (mut governor, mut driver, mut freq) = (String::new(), String::new(), String::new());
 		/* governor */
@@ -94,7 +95,7 @@ fn run() {
     let charging = ischarging();
     let gov = if charging { "performance" } else { "powersafe" };
     let tb  = if charging { 1 } else { 0 };
-    let cpus = 8;
+    let cpus = nproc();
 	let _threshold = (75 * cpus) / 100;
 
 	setgovernor(&gov.to_string());
@@ -134,7 +135,7 @@ fn turbo(on: i8) {
 }
 
 fn setgovernor(gov: &String) {
-    let cpus   = 8; /* TODO nproc() */
+    let cpus   = nproc();
 
     for i in 0..cpus {
         let mut fp = File::create(
@@ -148,3 +149,10 @@ fn usage() {
 	die!("usage: sacf [-blrtTv] [-g governor]");
 }
 
+fn nproc() -> u32 {
+    let mut cnt: u32 = 0;
+    for _i in glob("/sys/devices/system/cpu/cpu[0-9]*").expect("Failed to read glob pattern") {
+        cnt += 1;
+    }
+    cnt
+}
