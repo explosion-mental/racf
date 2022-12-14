@@ -1,4 +1,3 @@
-use glob::glob;
 use std::env;
 use std::process::exit;
 use std::thread::sleep;
@@ -6,6 +5,9 @@ use std::time::Duration;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
+use getsys::{Cpu, PerCpu};
+use num_cpus;
+use glob::glob;
 
 /* macros */
 macro_rules! die {
@@ -33,7 +35,6 @@ fn main() {
             turbo(0);
             exit(0);
         } else if argv[i] == "-r" || argv[i] == "--run-once" { /* turbo off */
-			run();
 			exit(0);
 		} else if i + 1 == argc {
 			usage();
@@ -46,73 +47,73 @@ fn main() {
         }
     }
 
-    die!("end of main()");
+	//float threshold = (75 * cpus) / 100;
+	//int charge = ischarging();
+	//unsigned int tb = charge ? acturbo : batturbo;
+	//setgovernor(charge ? acgovernor : batgovernor);
+	//turbo(tb != Never
+	//&& (tb == Always
+	//|| cpuperc() >= mincpu
+	//|| avgtemp() >= mintemp
+	//|| avgload() >= threshold));
+
+
+    let man = battery::Manager::new().unwrap();
+    let cpus = num_cpus::get();
+	let _threshold = (75 * cpus) / 100;
 
 	loop {
-		run();
-        sleep(Duration::from_secs(_interval));
+    let btt = man.batteries().unwrap().next().unwrap();
+    let charging = if btt.unwrap().state() == battery::State::Charging { true } else { false };
+    let gov = if charging { "performance" } else { "powersafe" };
+    let tb  = if charging { 1 } else { 0 };
+
+    println!("{}", charging);
+	setgovernor(&gov);
+    turbo(tb);
+    Cpu::perc(Duration::from_secs(_interval));
 	};
 }
 
 fn info() {
-    let cpus   = nproc();
-	let path1  = "/sys/devices/system/cpu/cpu";
-	let scgov  = "/cpufreq/scaling_governor";
-	let scfreq = "/cpufreq/scaling_cur_freq";
-	let scdvr  = "/cpufreq/scaling_driver";
-
-	println!("Cores: {}", cpus);
-	println!("AC adapter status: {}", if ischarging() { "Charging" } else { "Disconnected" });
-	println!("Average system load: {}", "avgload");
-	println!("System temperature: {} °C", "avgtemp");
-
-    for i in 0..cpus {
-        let (mut governor, mut driver, mut freq) = (String::new(), String::new(), String::new());
-		/* governor */
-        File::open(format!("{}{}{}", first, i, scgov))
-            .expect("Cannot open file.")
-            .read_to_string(&mut governor)
-            .expect("Cannot read file.");
-
-		/* current frequency */
-        File::open(format!("{}{}{}", first, i, scfreq))
-            .expect("Cannot open file.")
-            .read_to_string(&mut freq)
-            .expect("Cannot read file.");
-
-		/* driver */
-        File::open(format!("{}{}{}", first, i, scdvr))
-            .expect("Cannot open file.")
-            .read_to_string(&mut driver)
-            .expect("Cannot read file.");
-
-		println!("CPU{}\t{}\t{}\t{}", i, governor.trim_end(), driver.trim_end(), freq.trim_end());
+    println!("Turbo boost is {}",
+             if Cpu::turbo() == true { "enabled" } else { "disabled" }
+             );
+    println!("Average temperature: {} °C", Cpu::temp());
+    println!("Average cpu percentage: {:.2}%",
+             Cpu::perc(std::time::Duration::from_millis(200))
+             );
+    let manager = battery::Manager::new().unwrap();
+    for (idx, maybe_battery) in manager.batteries().unwrap().enumerate() {
+        let b = maybe_battery.unwrap();
+        //println!("Battery #{}:", idx);
+        //println!("Vendor: {}", b.vendor().unwrap());
+        //println!("Model: {}", b.model().unwrap());
+        println!("Using battery #{}, state: {}", idx, b.state());
+        break;
     }
-}
 
-fn run() {
-    let cpus = nproc();
-    let charging = ischarging();
-    let gov = if charging { "performance" } else { "powersafe" };
-    let tb  = if charging { 1 } else { 0 };
-	let _threshold = (75 * cpus) / 100;
 
-	setgovernor(&gov.to_string());
-    turbo(tb);
+    /* get vector of values */
+    let freq = PerCpu::freq();
+    let gov  = PerCpu::governor();
+    let driv = PerCpu::driver();
 
-}
+    let mut f = freq.iter();
+    let mut g = gov.iter();
+    let mut d = driv.iter();
 
-fn ischarging() -> bool {
-    for entry in glob("/sys/class/power_supply/A*/online").expect("Failed to read glob pattern") {
-        match entry {
-            Ok(_path) => return true,
-
-            // if the path matched but was unreadable,
-            // thereby preventing its contents from matching
-            Err(e) => println!("{:?}", e),
-        }
+    println!("Core\tGovernor\tScaling Driver\tFrequency(kHz)");
+    for i in 0..freq.len() {
+        println!("CPU{}\t{}\t{}\t{}", i,
+                 g.next().unwrap(),
+                 d.next().unwrap(),
+                 f.next().unwrap(),
+                 );
     }
-    false
+
+
+
 }
 
 fn turbo(on: i8) {
@@ -133,8 +134,8 @@ fn turbo(on: i8) {
     fp.write_all(on.to_string().as_bytes()).expect("Could not write");
 }
 
-fn setgovernor(gov: &String) {
-    let cpus = nproc();
+fn setgovernor(gov: &str) {
+    let cpus = num_cpus::get();
 
     for i in 0..cpus {
         let mut fp = File::create(
@@ -146,12 +147,4 @@ fn setgovernor(gov: &String) {
 
 fn usage() {
 	die!("usage: sacf [-blrtTv] [-g governor]");
-}
-
-fn nproc() -> u32 {
-    let mut cnt: u32 = 0;
-    for _i in glob("/sys/devices/system/cpu/cpu[0-9]*").expect("Failed to read glob pattern") {
-        cnt += 1;
-    }
-    cnt
 }
