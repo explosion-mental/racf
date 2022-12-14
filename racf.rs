@@ -44,20 +44,14 @@ fn main() {
         }
     }
 
-	//float threshold = (75 * cpus) / 100;
-	//int charge = ischarging();
-	//unsigned int tb = charge ? acturbo : batturbo;
-	//setgovernor(charge ? acgovernor : batgovernor);
-	//turbo(tb != Never
-	//&& (tb == Always
-	//|| cpuperc() >= mincpu
-	//|| avgtemp() >= mintemp
-	//|| avgload() >= threshold));
-
     /* config opts */
     let _interval = 10;
     let mincpu: f64 = 10.0;
     let mintemp: u32 = 10;
+    let govbat  = "powersave";
+    let govac   = "performance";
+    let acturbo = "Always"; /* always - never - auto */
+    let batturbo = "auto";
 
 
     let man = battery::Manager::new().unwrap();
@@ -68,19 +62,19 @@ fn main() {
 	loop {
         let btt = man.batteries().unwrap().next().unwrap();
         let charging = if btt.unwrap().state() == battery::State::Charging { true } else { false };
-        let gov = if charging { "performance" } else { "powersafe" };
-        let tb  = if charging { 1 } else { 0 };
+        let gov = if charging { govac } else { govbat };
+        let tb  = if charging { acturbo.to_ascii_lowercase() } else { batturbo.to_ascii_lowercase() };
 
-        println!("{}", charging);
         setgovernor(&gov);
-        if avgload() >= threshold ||
-            cpuperc >= mincpu ||
-            Cpu::temp() >= mintemp
+        if tb == "never" {
+            turbo(0);
+        }
+        else if tb == "always" || avgload() >= threshold || cpuperc >= mincpu || Cpu::temp() >= mintemp
         {
-            turbo(tb);
+            turbo(1);
         }
         cpuperc = Cpu::perc(Duration::from_secs(_interval));
-    };
+    }
 }
 
 fn info() {
