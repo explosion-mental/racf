@@ -16,7 +16,6 @@ macro_rules! die {
 fn main() {
     let argv: Vec<String> = env::args().collect();
     let argc = argv.len();
-    let _interval = 10;
 
 	for i in 1..argc {
 		/* these options take no arguments */
@@ -55,22 +54,33 @@ fn main() {
 	//|| avgtemp() >= mintemp
 	//|| avgload() >= threshold));
 
+    /* config opts */
+    let _interval = 10;
+    let mincpu: f64 = 10.0;
+    let mintemp: u32 = 10;
+
 
     let man = battery::Manager::new().unwrap();
     let cpus = num_cpus::get();
-	let _threshold = (75 * cpus) / 100;
+	let threshold: f64 = ((75 * cpus) / 100) as f64;
+    let mut cpuperc = Cpu::perc(Duration::from_secs(1));
 
 	loop {
-    let btt = man.batteries().unwrap().next().unwrap();
-    let charging = if btt.unwrap().state() == battery::State::Charging { true } else { false };
-    let gov = if charging { "performance" } else { "powersafe" };
-    let tb  = if charging { 1 } else { 0 };
+        let btt = man.batteries().unwrap().next().unwrap();
+        let charging = if btt.unwrap().state() == battery::State::Charging { true } else { false };
+        let gov = if charging { "performance" } else { "powersafe" };
+        let tb  = if charging { 1 } else { 0 };
 
-    println!("{}", charging);
-	setgovernor(&gov);
-    turbo(tb);
-    Cpu::perc(Duration::from_secs(_interval));
-	};
+        println!("{}", charging);
+        setgovernor(&gov);
+        if avgload() >= threshold ||
+            cpuperc >= mincpu ||
+            Cpu::temp() >= mintemp
+        {
+            turbo(tb);
+        }
+        cpuperc = Cpu::perc(Duration::from_secs(_interval));
+    };
 }
 
 fn info() {
@@ -109,9 +119,6 @@ fn info() {
                  f.next().unwrap(),
                  );
     }
-
-
-
 }
 
 fn turbo(on: i8) {
@@ -145,4 +152,20 @@ fn setgovernor(gov: &str) {
 
 fn usage() {
 	die!("usage: sacf [-blrtTv] [-g governor]");
+}
+
+//fn avgload() -> [f64; 3] {
+fn avgload() -> f64 {
+        let mut firstline = String::new();
+        let mut buffer = std::io::BufReader::new(
+                    File::open("/proc/loadavg").unwrap()
+                    );
+        buffer.read_line(&mut firstline).expect("Unable to read line");
+        let mut s = firstline.split_ascii_whitespace();
+        let min1  = s.next().unwrap().parse::<f64>().unwrap();
+       // let min5  = s.next().unwrap().parse::<f64>().unwrap();
+       // let min15 = s.next().unwrap().parse::<f64>().unwrap();
+
+        //[ min1, min5, min15 ]
+        min1
 }
