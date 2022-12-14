@@ -1,13 +1,11 @@
 use std::env;
 use std::process::exit;
-use std::thread::sleep;
 use std::time::Duration;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 use getsys::{Cpu, PerCpu};
 use num_cpus;
-use glob::glob;
 
 /* macros */
 macro_rules! die {
