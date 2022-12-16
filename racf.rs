@@ -6,13 +6,14 @@ use std::path::Path;
 use getsys::{Cpu, PerCpu};
 use num_cpus;
 use std::error::Error;
+use serde::Deserialize;
 
 //mod args;
 
 use clap::Parser;
 
 #[derive(Parser, Debug)]
-pub struct Cli {
+struct Cli {
     /// Enables/disables turbo boost
     //NOTE true/false should be enough, but consider using more generic words like "on" and "off"
     #[arg(short, long)]
@@ -29,6 +30,21 @@ pub struct Cli {
     /// Prints stats about the system that racf uses
     #[arg(short, long)]
     list: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct Config {
+    battery: BatConfig,
+    ac: BatConfig,
+}
+
+#[derive(Debug, Deserialize)]
+struct BatConfig {
+    turbo: String,
+    interval: u32,
+    mincpu: f64,
+    mintemp: u32,
+    governor: String,
 }
 
 /* macros */
@@ -58,15 +74,11 @@ fn main() -> Result<(), battery::Error> {
         exit(0);
     }
 
-    /* config opts */
-    let _interval = 10;
-    let mincpu: f64 = 10.0;
-    let mintemp: u32 = 10;
-    let govbat  = "powersave";
-    let govac   = "performance";
-    let acturbo = "Always"; /* always - never - auto */
-    let batturbo = "auto";
-
+    let contents = std::fs::read_to_string("test.toml")?;
+    let file: Config = toml::from_str(&contents).unwrap();
+    // println!("{:#?}", decoded);
+    println!("file: {:?}", file);
+    println!("battery governor: {}", file.ac.governor);
 
     let man = battery::Manager::new()?;
     let cpus = num_cpus::get();
@@ -76,18 +88,19 @@ fn main() -> Result<(), battery::Error> {
 	loop {
         let btt = man.batteries()?.next().unwrap();
         let charging = if btt?.state() == battery::State::Charging { true } else { false };
-        let gov = if charging { govac } else { govbat };
-        let tb  = if charging { acturbo.to_ascii_lowercase() } else { batturbo.to_ascii_lowercase() };
+        let conf = if charging { &file.ac } else { &file.battery };
+        let gov = if charging { &conf.governor } else { &conf.governor };
+        let tb  = if charging { conf.turbo.to_ascii_lowercase() } else { conf.turbo.to_ascii_lowercase() };
 
         setgovernor(&gov)?;
         if tb == "never" {
             turbo(0)?;
         }
-        else if tb == "always" || avgload()? >= threshold || cpuperc >= mincpu || Cpu::temp() >= mintemp
+        else if tb == "always" || avgload()? >= threshold || cpuperc >= conf.mincpu || Cpu::temp() >= conf.mintemp
         {
             turbo(1)?;
         }
-        cpuperc = Cpu::perc(Duration::from_secs(_interval));
+        cpuperc = Cpu::perc(Duration::from_secs(conf.interval.into()));
     }
 }
 
