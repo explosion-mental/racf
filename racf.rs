@@ -1,4 +1,3 @@
-use std::env;
 use std::process::exit;
 use std::time::Duration;
 use std::fs::File;
@@ -44,8 +43,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("{:?}", a);
 
     if a.list {
-            info()?;
-            exit(0);
+        info()?;
+        exit(0);
     } else if let Some(t) = a.turbo {
         match t {
             true => turbo(1)?,
@@ -54,10 +53,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         exit(0);
     } else if a.run_once {
         todo!("the run function");
-        exit(0);
     } else if let Some(gov) = a.governor.as_deref() {
-			setgovernor(gov)?;
-			exit(0);
+        setgovernor(gov)?;
+        exit(0);
     }
 
     /* config opts */
