@@ -8,6 +8,30 @@ use getsys::{Cpu, PerCpu};
 use num_cpus;
 use std::error::Error;
 
+//mod args;
+
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+pub struct Cli {
+    /// Enables/disables turbo boost
+    //NOTE true/false should be enough, but consider using more generic words like "on" and "off"
+    #[arg(short, long)]
+    turbo: Option<bool>,
+
+    /// Runs once and exits
+    #[arg(short, long)]
+    run_once: bool,
+
+    /// Sets a governor
+    #[arg(short, long)]
+    governor: Option<String>,
+
+    /// Prints stats about the system that racf uses
+    #[arg(short, long)]
+    list: bool,
+}
+
 /* macros */
 macro_rules! die {
     ($fmt:expr) => ({ print!(concat!($fmt, "\n")); std::process::exit(1) });
@@ -15,34 +39,25 @@ macro_rules! die {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let argv: Vec<String> = env::args().collect();
-    let argc = argv.len();
+    let a = Cli::parse();
 
-	for i in 1..argc {
-		/* these options take no arguments */
-        if argv[i] == "-v" || argv[i] == "--version" {
-            println!("racf-VERSION"); // TODO version
-            exit(0);
-        } else if argv[i] == "-l" || argv[i] == "--list" { /* stats about the system */
+    println!("{:?}", a);
+
+    if a.list {
             info()?;
             exit(0);
-        } else if argv[i] == "-t" || argv[i] == "--enable-turbo" { /* turbo on */
-            turbo(1)?;
-            exit(0);
-        } else if argv[i] == "-T" || argv[i] == "--disable-turbo" { /* turbo off */
-            turbo(0)?;
-            exit(0);
-        } else if argv[i] == "-r" || argv[i] == "--run-once" { /* turbo off */
-			exit(0);
-		} else if i + 1 == argc {
-			usage();
-		/* these options take one argument */
-		} else if argv[i] == "-g" || argv[i] == "--governor" { /* set governor */
-			setgovernor(&argv[i + 1])?;
-			exit(0);
-		} else {
-			usage();
+    } else if let Some(t) = a.turbo {
+        match t {
+            true => turbo(1)?,
+            false => turbo(0)?,
         }
+        exit(0);
+    } else if a.run_once {
+        todo!("the run function");
+        exit(0);
+    } else if let Some(gov) = a.governor.as_deref() {
+			setgovernor(gov)?;
+			exit(0);
     }
 
     /* config opts */
@@ -148,10 +163,6 @@ fn setgovernor(gov: &str) -> std::io::Result<()> {
         fp.write_all(gov.as_bytes())?;
 	}
     Ok(())
-}
-
-fn usage() {
-	die!("usage: sacf [-blrtTv] [-g governor]");
 }
 
 //fn avgload() -> [f64; 3] {

@@ -10,6 +10,7 @@ glob = "0.3.0"
 num_cpus = "1.0.0"
 battery = "0.7.8"
 getsys = { git = "https://github.com/explosion-mental/getsys" }
+clap = { version = "4.0.29", features = ["derive"] }
 
 
 [[bin]]
