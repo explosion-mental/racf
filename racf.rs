@@ -37,7 +37,7 @@ macro_rules! die {
     ($fmt:expr, $($arg:tt)*) => ({ print!(concat!($fmt, "\n"), $($arg)*); std::process::exit(1) });
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), battery::Error> {
     let a = Cli::parse();
 
     println!("{:?}", a);
@@ -91,7 +91,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn info() -> Result<(), Box<dyn Error>> {
+fn info() -> Result<(), battery::Error> {
     println!("Turbo boost is {}",
              if Cpu::turbo() == true { "enabled" } else { "disabled" }
              );
