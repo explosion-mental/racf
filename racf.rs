@@ -47,16 +47,86 @@ struct BatConfig {
     governor: String,
 }
 
+impl Config {
+    /// Validates the configuration file
+    // TODO proper error handling
+    pub fn validate(&mut self) {
+        let mut errors = Vec::new();
+
+        // Check turbo
+        self.battery.turbo.make_ascii_lowercase();
+        let tb = &self.battery.turbo;
+
+        if !(tb == "always"
+        || tb == "never"
+        || tb == "auto")
+        {
+            panic!("invalid parameter for turbo: '{}' and {}", self.battery.turbo, tb);
+        }
+
+        // Check governor
+        // TODO only allow for avaliable governors, current
+        // impl is generic governors (most systems should have it)
+        self.ac.governor.make_ascii_lowercase();
+        let gov = &self.ac.governor;
+
+        if !(gov == "conservative"
+        || gov == "ondemand"
+        || gov == "userspace"
+        || gov == "powersafe"
+        || gov == "performance"
+        || gov == "schedutil")
+        {
+            errors.push(format!("invalid parameter for governor: '{}'", self.battery.governor));
+        }
+
+        // Check turbo
+        self.battery.turbo.make_ascii_lowercase();
+        let tb = &self.battery.turbo;
+
+        if !(tb == "always"
+        || tb == "never"
+        || tb == "auto")
+        {
+            panic!("invalid parameter for turbo: '{}' and {}", self.battery.turbo, tb);
+        }
+
+        // Check governor
+        // TODO only allow for avaliable governors, current
+        // impl is generic governors (most systems should have it)
+        self.ac.governor.make_ascii_lowercase();
+        let gov = &self.ac.governor;
+
+        if !(gov == "conservative"
+        || gov == "ondemand"
+        || gov == "userspace"
+        || gov == "powersafe"
+        || gov == "performance"
+        || gov == "schedutil")
+        {
+            errors.push(format!("invalid parameter for governor: '{}'", self.battery.governor));
+        }
+
+        if errors.is_empty() {
+            //Ok(())
+        } else {
+            panic!("{:?}", errors);
+            //Err()
+        }
+    }
+}
+
 /* macros */
 macro_rules! die {
     ($fmt:expr) => ({ print!(concat!($fmt, "\n")); std::process::exit(1) });
     ($fmt:expr, $($arg:tt)*) => ({ print!(concat!($fmt, "\n"), $($arg)*); std::process::exit(1) });
 }
 
-fn main() -> Result<(), battery::Error> {
-    let a = Cli::parse();
+//TODO try_main
 
-    println!("{:?}", a);
+fn main() -> Result<(), battery::Error> {
+    // Cli args
+    let a = Cli::parse();
 
     if a.list {
         info()?;
@@ -74,33 +144,31 @@ fn main() -> Result<(), battery::Error> {
         exit(0);
     }
 
+    //read conf file
     let contents = std::fs::read_to_string("test.toml")?;
-    let file: Config = toml::from_str(&contents).unwrap();
-    // println!("{:#?}", decoded);
-    println!("file: {:?}", file);
-    println!("battery governor: {}", file.ac.governor);
+    let mut file: Config = toml::from_str(&contents).unwrap();
+    file.validate();
 
+    // setup
     let man = battery::Manager::new()?;
     let cpus = num_cpus::get();
 	let threshold: f64 = ((75 * cpus) / 100) as f64;
     let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(200));
 
-	loop {
+	loop { //main loop
         let btt = man.batteries()?.next().unwrap();
         let charging = if btt?.state() == battery::State::Charging { true } else { false };
         let conf = if charging { &file.ac } else { &file.battery };
-        let gov = if charging { &conf.governor } else { &conf.governor };
-        let tb  = if charging { conf.turbo.to_ascii_lowercase() } else { conf.turbo.to_ascii_lowercase() };
 
-        setgovernor(&gov)?;
-        if tb == "never" {
+        setgovernor(&conf.governor)?;
+        if conf.turbo == "never" {
             turbo(0)?;
         }
-        else if tb == "always" || avgload()? >= threshold || cpuperc >= conf.mincpu || Cpu::temp() >= conf.mintemp
+        else if conf.turbo == "always" || avgload()? >= threshold || cpuperc >= conf.mincpu || Cpu::temp() >= conf.mintemp
         {
             turbo(1)?;
         }
-        cpuperc = Cpu::perc(Duration::from_secs(conf.interval.into()));
+        cpuperc = Cpu::perc(Duration::from_secs(conf.interval.into())); //sleep
     }
 }
 
