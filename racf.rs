@@ -123,15 +123,29 @@ macro_rules! die {
 }
 
 fn main() {
-    match try_main() {
+    match setup() {
         Ok(()) => (),
-        Err(e) => println!("{}", e),
+        Err(e) => println!("{:?}", e),
+    }
+
+    //read conf file
+    let contents = std::fs::read_to_string("test.toml").unwrap();
+    let mut file: Config = toml::from_str(&contents).unwrap();
+    file.validate();
+
+    let cpus = num_cpus::get();
+    let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(200)); //init val
+
+    loop {
+        match run(&file, cpuperc, cpus) {
+            Ok(()) => (),
+            Err(e) => panic!("{:?}", e),
+        }
+        cpuperc = Cpu::perc(Duration::from_secs(file.ac.interval.into())); //sleep
     }
 }
 
-//TODO try_main
-
-fn try_main() -> Result<(), battery::Error> {
+fn setup() -> Result<(), battery::Error> {
     // Cli args
     let a = Cli::parse();
 
@@ -151,32 +165,25 @@ fn try_main() -> Result<(), battery::Error> {
         exit(0);
     }
 
-    //read conf file
-    let contents = std::fs::read_to_string("test.toml")?;
-    let mut file: Config = toml::from_str(&contents).unwrap();
-    file.validate();
+    Ok(())
+}
 
-    // setup
-    let man = battery::Manager::new()?;
-    let cpus = num_cpus::get();
+fn run(conf: &Config, cpuperc: f64, cpus: usize) -> Result<(), battery::Error> {
+    let man = battery::Manager::new().unwrap();
 	let threshold: f64 = ((75 * cpus) / 100) as f64;
-    let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(200));
+    let btt = man.batteries()?.next().unwrap();
+    let charging = if btt?.state() == battery::State::Charging { true } else { false };
+    let conf = if charging { &conf.ac } else { &conf.battery };
 
-	loop { //main loop
-        let btt = man.batteries()?.next().unwrap();
-        let charging = if btt?.state() == battery::State::Charging { true } else { false };
-        let conf = if charging { &file.ac } else { &file.battery };
-
-        setgovernor(&conf.governor)?;
-        if conf.turbo == "never" {
-            turbo(0)?;
-        }
-        else if conf.turbo == "always" || avgload()? >= threshold || cpuperc >= conf.mincpu || Cpu::temp() >= conf.mintemp
-        {
-            turbo(1)?;
-        }
-        cpuperc = Cpu::perc(Duration::from_secs(conf.interval.into())); //sleep
+    setgovernor(&conf.governor)?;
+    if conf.turbo == "never" {
+        turbo(0)?;
     }
+    else if conf.turbo == "always" || avgload()? >= threshold || cpuperc >= conf.mincpu || Cpu::temp() >= conf.mintemp
+    {
+        turbo(1)?;
+    }
+    Ok(())
 }
 
 fn info() -> Result<(), battery::Error> {
