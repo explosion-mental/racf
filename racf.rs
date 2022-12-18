@@ -61,7 +61,7 @@ impl Config {
         || tb == "never"
         || tb == "auto")
         {
-            panic!("invalid parameter for turbo: '{}' and {}", self.battery.turbo, tb);
+            errors.push(format!("invalid parameter for turbo: '{}'", self.battery.turbo));
         }
 
         // Check governor
@@ -88,7 +88,7 @@ impl Config {
         || tb == "never"
         || tb == "auto")
         {
-            panic!("invalid parameter for turbo: '{}' and {}", self.battery.turbo, tb);
+            errors.push(format!("invalid parameter for turbo: '{}'", self.ac.turbo));
         }
 
         // Check governor
@@ -104,7 +104,7 @@ impl Config {
         || gov == "performance"
         || gov == "schedutil")
         {
-            errors.push(format!("invalid parameter for governor: '{}'", self.battery.governor));
+            errors.push(format!("invalid parameter for governor: '{}'", self.ac.governor));
         }
 
         if errors.is_empty() {
@@ -122,9 +122,16 @@ macro_rules! die {
     ($fmt:expr, $($arg:tt)*) => ({ print!(concat!($fmt, "\n"), $($arg)*); std::process::exit(1) });
 }
 
+fn main() {
+    match try_main() {
+        Ok(()) => (),
+        Err(e) => println!("{}", e),
+    }
+}
+
 //TODO try_main
 
-fn main() -> Result<(), battery::Error> {
+fn try_main() -> Result<(), battery::Error> {
     // Cli args
     let a = Cli::parse();
 
