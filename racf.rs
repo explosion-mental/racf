@@ -5,12 +5,28 @@ use std::io::prelude::*;
 use std::path::Path;
 use getsys::{Cpu, PerCpu};
 use num_cpus;
-use std::error::Error;
 use serde::Deserialize;
+use std::{error::Error, io};
+use thiserror::Error;
 
 //mod args;
 
 use clap::Parser;
+
+#[derive(Debug, Error)]
+enum ConfigErr {
+    /// The config file doesn't exist
+    #[error("failed to read the engage file")]
+    MissingConfig(#[source] io::Error),
+
+    /// Wrong parameter of some kind
+    #[error("parameter '{found}' is invalid, expected: '{expected}'.")]
+    WrongArg {
+        expected: String,
+        found: String,
+    },
+}
+
 
 #[derive(Parser, Debug)]
 struct Cli {
@@ -50,8 +66,8 @@ struct BatConfig {
 impl Config {
     /// Validates the configuration file
     // TODO proper error handling
-    pub fn validate(&mut self) {
-        let mut errors = Vec::new();
+    pub fn validate(&mut self) -> Result<(), ConfigErr> {
+        //let mut errors = Vec::new();
 
         // Check turbo
         self.battery.turbo.make_ascii_lowercase();
@@ -61,7 +77,43 @@ impl Config {
         || tb == "never"
         || tb == "auto")
         {
-            errors.push(format!("invalid parameter for turbo: '{}'", self.battery.turbo));
+            //errors.push(
+            return Err(ConfigErr::WrongArg
+                { expected: "always, never, auto".to_string(), found: self.battery.turbo.to_string() }
+                );
+        }
+
+        // Check governor
+        // TODO only allow for avaliable governors, current
+        // impl is generic governors (most systems should have it)
+        self.ac.governor.make_ascii_lowercase();
+        let gov = &self.battery.governor;
+
+        if !(gov == "conservative"
+        || gov == "ondemand"
+        || gov == "userspace"
+        || gov == "powersafe"
+        || gov == "performance"
+        || gov == "schedutil")
+        {
+            //errors.push(
+            return Err(ConfigErr::WrongArg
+                { expected: "governor".to_string(), found: self.battery.governor.to_string() }
+                );
+        }
+
+        // Check turbo
+        self.battery.turbo.make_ascii_lowercase();
+        let tb = &self.ac.turbo;
+
+        if !(tb == "always"
+        || tb == "never"
+        || tb == "auto")
+        {
+            //errors.push(
+            return Err(ConfigErr::WrongArg
+                { expected: "always, never, auto".to_string(), found: self.ac.turbo.to_string() }
+                );
         }
 
         // Check governor
@@ -77,42 +129,19 @@ impl Config {
         || gov == "performance"
         || gov == "schedutil")
         {
-            errors.push(format!("invalid parameter for governor: '{}'", self.battery.governor));
+            //errors.push(
+            return Err(ConfigErr::WrongArg
+                { expected: "governors".to_string(), found: self.ac.governor.to_string() }
+                );
         }
 
-        // Check turbo
-        self.battery.turbo.make_ascii_lowercase();
-        let tb = &self.battery.turbo;
+        Ok(())
 
-        if !(tb == "always"
-        || tb == "never"
-        || tb == "auto")
-        {
-            errors.push(format!("invalid parameter for turbo: '{}'", self.ac.turbo));
-        }
-
-        // Check governor
-        // TODO only allow for avaliable governors, current
-        // impl is generic governors (most systems should have it)
-        self.ac.governor.make_ascii_lowercase();
-        let gov = &self.ac.governor;
-
-        if !(gov == "conservative"
-        || gov == "ondemand"
-        || gov == "userspace"
-        || gov == "powersafe"
-        || gov == "performance"
-        || gov == "schedutil")
-        {
-            errors.push(format!("invalid parameter for governor: '{}'", self.ac.governor));
-        }
-
-        if errors.is_empty() {
-            //Ok(())
-        } else {
-            panic!("{:?}", errors);
-            //Err()
-        }
+        //if errors.is_empty() {
+        //    Ok(())
+        //} else {
+        //    Err(errors)
+        //}
     }
 }
 
@@ -131,7 +160,10 @@ fn main() {
     //read conf file
     let contents = std::fs::read_to_string("test.toml").unwrap();
     let mut file: Config = toml::from_str(&contents).unwrap();
-    file.validate();
+    match file.validate() {
+        Ok(()) => (),
+        Err(e) => die!("{}", e),
+    }
 
     let cpus = num_cpus::get();
     let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(200)); //init val

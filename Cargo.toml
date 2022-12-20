@@ -6,12 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-num_cpus = "1.0.0"
+num_cpus = "1.14.0"
 battery = "0.7.8"
 getsys = { git = "https://github.com/explosion-mental/getsys" }
 clap = { version = "4.0.29", features = ["derive"] }
 toml = "0.5.10"
 serde = { version = "1.0.150", features = ["derive"] }
+thiserror = "1.0.38"
 
 
 [[bin]]
