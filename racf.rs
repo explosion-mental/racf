@@ -18,10 +18,13 @@ macro_rules! die {
 
 // XXX thiserror overkill?
 #[derive(Debug, Error)]
-enum ConfigErr {
+enum MainE {
     /// The config file doesn't exist
-    #[error("Config: failed to read the engage file")]
-    MissingConfig(#[source] io::Error),
+    #[error("Battery")]
+    Bat(#[from] battery::Error),
+
+    #[error(transparent)]
+    Io(#[from] io::Error),
 
     /// Wrong parameter of some kind
     #[error("Config: parameter '{found}' is invalid, expected: '{expected}'.")]
@@ -70,7 +73,7 @@ struct BatConfig {
 impl Config {
     /// Validates the configuration file
     // XXX return a vec<> of errors of the whole file, instead of returning early
-    pub fn validate(&mut self) -> Result<(), ConfigErr> {
+    pub fn validate(&mut self) -> Result<(), MainE> {
         //let mut errors = Vec::new();
 
         // Check turbo
@@ -82,7 +85,7 @@ impl Config {
         || tb == "auto")
         {
             //errors.push(
-            return Err(ConfigErr::WrongArg
+            return Err(MainE::WrongArg
                 { expected: "always, never, auto".to_string(), found: self.battery.turbo.to_string() }
                 );
         }
@@ -101,7 +104,7 @@ impl Config {
         || gov == "schedutil")
         {
             //errors.push(
-            return Err(ConfigErr::WrongArg
+            return Err(MainE::WrongArg
                 { expected: "governor".to_string(), found: self.battery.governor.to_string() }
                 );
         }
@@ -115,7 +118,7 @@ impl Config {
         || tb == "auto")
         {
             //errors.push(
-            return Err(ConfigErr::WrongArg
+            return Err(MainE::WrongArg
                 { expected: "always, never, auto".to_string(), found: self.ac.turbo.to_string() }
                 );
         }
@@ -134,7 +137,7 @@ impl Config {
         || gov == "schedutil")
         {
             //errors.push(
-            return Err(ConfigErr::WrongArg
+            return Err(MainE::WrongArg
                 { expected: "governors".to_string(), found: self.ac.governor.to_string() }
                 );
         }
@@ -176,6 +179,8 @@ fn main() {
         // Err(ref e) if e.kind() == io::ErrorKind::PermissionDenied => die!("You don't have read and write permissions on /sys."),
         match run(&file, cpuperc, cpus) {
             Ok(()) => (),
+            Err(MainE::Bat(e)) => die!("Error reading config file: {}", e),
+            Err(MainE::Io(ref e)) if e.kind() == io::ErrorKind::PermissionDenied => die!("Error: You don't have read and write permissions on /sys: {}", e),
             Err(e) => die!("{}", e),
         }
         cpuperc = Cpu::perc(Duration::from_secs(file.ac.interval.into())); //sleep
@@ -206,7 +211,8 @@ fn setup() -> Result<(), battery::Error> {
     Ok(())
 }
 
-fn run(conf: &Config, cpuperc: f64, cpus: usize) -> Result<(), battery::Error> {
+//TODO battery::Manager::new() in main() and pass it to this fn
+fn run(conf: &Config, cpuperc: f64, cpus: usize) -> Result<(), MainE> {
     let man = battery::Manager::new()?;
 	let threshold: f64 = ((75 * cpus) / 100) as f64;
     let btt = man.batteries()?.next().unwrap();
