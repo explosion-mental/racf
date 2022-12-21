@@ -128,7 +128,10 @@ fn main() {
         Err(e) => die!("{}", e),
     };
 
-    let file: Config = toml::from_str(&contents).unwrap();
+    let file: Config = match toml::from_str(&contents) {
+        Ok(o) => o,
+        Err(e) => die!("{}", e),
+    };
     match file.validate() {
         Ok(()) => (),
         Err(e) => die!("{}", e),
