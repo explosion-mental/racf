@@ -6,21 +6,25 @@ use std::path::Path;
 use getsys::{Cpu, PerCpu};
 use num_cpus;
 use serde::Deserialize;
-use std::{error::Error, io};
+use std::io;
 use thiserror::Error;
-
-//mod args;
-
 use clap::Parser;
 
+/* macros */
+macro_rules! die {
+    ($fmt:expr) => ({ print!(concat!($fmt, "\n")); std::process::exit(1) });
+    ($fmt:expr, $($arg:tt)*) => ({ print!(concat!($fmt, "\n"), $($arg)*); std::process::exit(1) });
+}
+
+// XXX thiserror overkill?
 #[derive(Debug, Error)]
 enum ConfigErr {
     /// The config file doesn't exist
-    #[error("failed to read the engage file")]
+    #[error("Config: failed to read the engage file")]
     MissingConfig(#[source] io::Error),
 
     /// Wrong parameter of some kind
-    #[error("parameter '{found}' is invalid, expected: '{expected}'.")]
+    #[error("Config: parameter '{found}' is invalid, expected: '{expected}'.")]
     WrongArg {
         expected: String,
         found: String,
@@ -65,7 +69,7 @@ struct BatConfig {
 
 impl Config {
     /// Validates the configuration file
-    // TODO proper error handling
+    // XXX return a vec<> of errors of the whole file, instead of returning early
     pub fn validate(&mut self) -> Result<(), ConfigErr> {
         //let mut errors = Vec::new();
 
@@ -145,12 +149,6 @@ impl Config {
     }
 }
 
-/* macros */
-macro_rules! die {
-    ($fmt:expr) => ({ print!(concat!($fmt, "\n")); std::process::exit(1) });
-    ($fmt:expr, $($arg:tt)*) => ({ print!(concat!($fmt, "\n"), $($arg)*); std::process::exit(1) });
-}
-
 fn main() {
     match setup() {
         Ok(()) => (),
@@ -158,7 +156,12 @@ fn main() {
     }
 
     //read conf file
-    let contents = std::fs::read_to_string("test.toml").unwrap();
+    let contents = match std::fs::read_to_string("test.toml") {
+        Ok(o) => o,
+        Err(ref e) if e.kind() == io::ErrorKind::NotFound => die!("Configuration file doesn't exist."),
+        Err(e) => die!("{}", e),
+    };
+
     let mut file: Config = toml::from_str(&contents).unwrap();
     match file.validate() {
         Ok(()) => (),
@@ -169,9 +172,11 @@ fn main() {
     let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(200)); //init val
 
     loop {
+        // TODO use battery::Error and match for io PermissionDenied
+        // Err(ref e) if e.kind() == io::ErrorKind::PermissionDenied => die!("You don't have read and write permissions on /sys."),
         match run(&file, cpuperc, cpus) {
             Ok(()) => (),
-            Err(e) => panic!("{:?}", e),
+            Err(e) => die!("{}", e),
         }
         cpuperc = Cpu::perc(Duration::from_secs(file.ac.interval.into())); //sleep
     }
@@ -179,6 +184,7 @@ fn main() {
 
 fn setup() -> Result<(), battery::Error> {
     // Cli args
+    // XXX cli flag to pass a config file¿
     let a = Cli::parse();
 
     if a.list {
@@ -201,7 +207,7 @@ fn setup() -> Result<(), battery::Error> {
 }
 
 fn run(conf: &Config, cpuperc: f64, cpus: usize) -> Result<(), battery::Error> {
-    let man = battery::Manager::new().unwrap();
+    let man = battery::Manager::new()?;
 	let threshold: f64 = ((75 * cpus) / 100) as f64;
     let btt = man.batteries()?.next().unwrap();
     let charging = if btt?.state() == battery::State::Charging { true } else { false };
