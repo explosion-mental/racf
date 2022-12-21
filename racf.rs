@@ -26,6 +26,10 @@ enum MainE {
     #[error(transparent)]
     Io(#[from] io::Error),
 
+    /// Failed to deserialize the toml config file
+    #[error("Failed to deserialize config file")]
+    Deser(#[from] toml::de::Error),
+
     /// Wrong parameter of some kind
     #[error("Config: parameter '{found}' is invalid, expected: '{expected}'.")]
     WrongArg {
@@ -118,39 +122,39 @@ impl Config {
 fn main() {
     match setup() {
         Ok(()) => (),
-        Err(e) => println!("{:?}", e),
-    }
-
-    //read conf file
-    let contents = match std::fs::read_to_string("test.toml") {
-        Ok(o) => o,
-        Err(ref e) if e.kind() == io::ErrorKind::NotFound => die!("Configuration file doesn't exist."),
-        Err(e) => die!("{}", e),
-    };
-
-    let file: Config = match toml::from_str(&contents) {
-        Ok(o) => o,
-        Err(e) => die!("{}", e),
-    };
-    match file.validate() {
-        Ok(()) => (),
         Err(e) => die!("{}", e),
     }
+
+    let conf = match parse_conf() {
+        Ok(o) => o,
+        Err(MainE::Io(e)) if e.kind() == io::ErrorKind::NotFound => die!("Error: configuration file doesn't exist: {}",  e),
+        Err(MainE::Deser(e)) => die!("Failed to deserialize config file: {}", e),
+        Err(e) => die!("{}", e),
+    };
 
     let cpus = num_cpus::get();
     let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(200)); //init val
 
     loop {
-        // TODO use battery::Error and match for io PermissionDenied
-        // Err(ref e) if e.kind() == io::ErrorKind::PermissionDenied => die!("You don't have read and write permissions on /sys."),
-        match run(&file, cpuperc, cpus) {
+        match run(&conf, cpuperc, cpus) {
             Ok(()) => (),
-            Err(MainE::Bat(e)) => die!("Error reading config file: {}", e),
+            Err(MainE::Bat(e)) => die!("Error reading battery values: {}", e),
             Err(MainE::Io(ref e)) if e.kind() == io::ErrorKind::PermissionDenied => die!("Error: You don't have read and write permissions on /sys: {}", e),
             Err(e) => die!("{}", e),
         }
-        cpuperc = Cpu::perc(Duration::from_secs(file.ac.interval.into())); //sleep
+        //TODO sleep
+        cpuperc = Cpu::perc(Duration::from_secs(conf.ac.interval.into())); //sleep
     }
+}
+
+fn parse_conf() -> Result<Config, MainE> {
+    let contents = std::fs::read_to_string("test.toml")?;
+    let file: Config = toml::from_str(&contents)?;
+    match file.validate() {
+        Ok(()) => (),
+        Err(e) => die!("{}", e),
+    }
+    Ok(file)
 }
 
 fn setup() -> Result<(), MainE> {
@@ -168,7 +172,8 @@ fn setup() -> Result<(), MainE> {
         }
         exit(0);
     } else if a.run_once {
-        todo!("the run function");
+        let f = parse_conf()?;
+        run(&f, Cpu::perc(Duration::from_millis(200)), num_cpus::get())?;
     } else if let Some(gov) = a.governor.as_deref() {
         setgovernor(gov)?;
         exit(0);
