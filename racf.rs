@@ -80,6 +80,12 @@ struct BatConfig {
     governor: String,
 }
 
+struct BatInfo {
+    charging: bool,
+    vendor: String,
+    model: String,
+}
+
 fn validate_conf(c: &BatConfig) -> Result<(), MainE> {
         // Check turbo
         let tb = c.turbo.to_ascii_lowercase();
@@ -140,16 +146,61 @@ fn main() {
 
     let cpus = num_cpus::get();
     let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(200)); //init val
+    let man = match battery::Manager::new() {
+        Ok(o) => o,
+        Err(e) => die!("{}", e),
+    };
+    let bat = get_bat(&man);
+
 
     loop {
-        match run(&conf, cpuperc, cpus) {
+        match run(&conf, cpuperc, &bat, cpus) {
             Ok(()) => (),
             Err(MainE::Bat(e)) => die!("Error reading battery values: {}", e),
             Err(MainE::Io(ref e)) if e.kind() == io::ErrorKind::PermissionDenied => die!("Error: You don't have read and write permissions on /sys: {}", e),
             Err(e) => die!("{}", e),
         }
-        //TODO sleep
-        cpuperc = Cpu::perc(Duration::from_secs(conf.ac.interval.into())); //sleep
+        cpuperc = Cpu::perc(Duration::from_secs(
+                if bat.charging { conf.ac.interval.into() } else { conf.battery.interval.into() }
+                )); //sleep
+    }
+}
+
+///XXX just exit if battery errors out
+fn get_bat(man: &battery::Manager) -> BatInfo {
+
+    let mut btt = match man.batteries() {
+        Ok(o) => o,
+        Err(e) => die!("{}", e),
+    };
+
+    let mut btt = match btt.next() {
+        Some(bats) => match bats {
+            Ok(o) => o,
+            Err(e) => die!("{}", e),
+        },
+        None => die!("Could not fetch information about the battery"),
+    };
+
+    match man.refresh(&mut btt) {
+        Ok(()) => (),
+        Err(e) => die!("{}", e),
+    };
+
+    let charging = if btt.state() == battery::State::Charging { true } else { false };
+    let vendor = match btt.vendor() {
+        Some(s) => s,
+        None => "Could not get battery vendor."
+    };
+    let model  = match btt.model() {
+        Some(s) => s,
+        None => "Could not get battery model."
+    };
+
+    BatInfo {
+        charging: charging,
+        vendor: vendor.to_string(),
+        model: model.to_string(),
     }
 }
 
@@ -186,7 +237,9 @@ fn setup() -> Result<(), MainE> {
         exit(0);
     } else if a.run_once {
         let f = parse_conf()?;
-        run(&f, Cpu::perc(Duration::from_millis(200)), num_cpus::get())?;
+        let man = battery::Manager::new()?;
+        let bat = get_bat(&man);
+        run(&f, Cpu::perc(Duration::from_millis(200)), &bat, num_cpus::get())?;
     } else if let Some(gov) = a.governor.as_deref() {
         setgovernor(gov)?;
         exit(0);
@@ -195,13 +248,9 @@ fn setup() -> Result<(), MainE> {
     Ok(())
 }
 
-//TODO battery::Manager::new() in main() and pass it to this fn
-fn run(conf: &Config, cpuperc: f64, cpus: usize) -> Result<(), MainE> {
-    let man = battery::Manager::new()?;
+fn run(conf: &Config, cpuperc: f64, b: &BatInfo, cpus: usize) -> Result<(), MainE> {
 	let threshold: f64 = ((75 * cpus) / 100) as f64;
-    let btt = man.batteries()?.next().unwrap();
-    let charging = if btt?.state() == battery::State::Charging { true } else { false };
-    let conf = if charging { &conf.ac } else { &conf.battery };
+    let conf = if b.charging { &conf.ac } else { &conf.battery };
 
     setgovernor(&conf.governor)?;
     if conf.turbo == "never" {
@@ -223,15 +272,12 @@ fn info() -> Result<(), MainE> {
              Cpu::perc(std::time::Duration::from_millis(200))
              );
 
-    let manager = battery::Manager::new()?;
-    for (idx, maybe_battery) in manager.batteries()?.enumerate() {
-        let b = maybe_battery?;
-        println!("Using battery #{}:", idx);
-        println!("\tVendor: {}", b.vendor().unwrap());
-        println!("\tModel: {}", b.model().unwrap());
-        println!("\tState: {}", b.state());
-        break;
-    }
+    let man = battery::Manager::new()?;
+    let b = get_bat(&man);
+    println!("Using battery");
+    println!("\tVendor: {}", b.vendor);
+    println!("\tModel: {}", b.model);
+    println!("\tState: {}", if b.charging { "Charging" } else { "Disconected" });
 
     println!("");
 
