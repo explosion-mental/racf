@@ -70,31 +70,24 @@ struct BatConfig {
     governor: String,
 }
 
-impl Config {
-    /// Validates the configuration file
-    // XXX return a vec<> of errors of the whole file, instead of returning early
-    pub fn validate(&mut self) -> Result<(), MainE> {
-        //let mut errors = Vec::new();
-
+fn validate_conf(c: &BatConfig) -> Result<(), MainE> {
         // Check turbo
-        self.battery.turbo.make_ascii_lowercase();
-        let tb = &self.battery.turbo;
+        let tb = c.turbo.to_ascii_lowercase();
 
         if !(tb == "always"
         || tb == "never"
         || tb == "auto")
         {
             //errors.push(
-            return Err(MainE::WrongArg
-                { expected: "always, never, auto".to_string(), found: self.battery.turbo.to_string() }
+            return Err(
+                MainE::WrongArg { expected: "always, never, auto".to_string(), found: c.turbo.to_owned() }
                 );
         }
 
         // Check governor
         // TODO only allow for avaliable governors, current
         // impl is generic governors (most systems should have it)
-        self.ac.governor.make_ascii_lowercase();
-        let gov = &self.battery.governor;
+        let gov = c.governor.to_ascii_lowercase();
 
         if !(gov == "conservative"
         || gov == "ondemand"
@@ -104,51 +97,21 @@ impl Config {
         || gov == "schedutil")
         {
             //errors.push(
-            return Err(MainE::WrongArg
-                { expected: "governor".to_string(), found: self.battery.governor.to_string() }
-                );
-        }
-
-        // Check turbo
-        self.battery.turbo.make_ascii_lowercase();
-        let tb = &self.ac.turbo;
-
-        if !(tb == "always"
-        || tb == "never"
-        || tb == "auto")
-        {
-            //errors.push(
-            return Err(MainE::WrongArg
-                { expected: "always, never, auto".to_string(), found: self.ac.turbo.to_string() }
-                );
-        }
-
-        // Check governor
-        // TODO only allow for avaliable governors, current
-        // impl is generic governors (most systems should have it)
-        self.ac.governor.make_ascii_lowercase();
-        let gov = &self.ac.governor;
-
-        if !(gov == "conservative"
-        || gov == "ondemand"
-        || gov == "userspace"
-        || gov == "powersafe"
-        || gov == "performance"
-        || gov == "schedutil")
-        {
-            //errors.push(
-            return Err(MainE::WrongArg
-                { expected: "governors".to_string(), found: self.ac.governor.to_string() }
+            return Err(
+                MainE::WrongArg { expected: "governor".to_string(), found: c.governor.to_owned() }
                 );
         }
 
         Ok(())
+}
 
-        //if errors.is_empty() {
-        //    Ok(())
-        //} else {
-        //    Err(errors)
-        //}
+impl Config {
+    /// Validates the configuration file
+    // XXX return a vec<> of errors of the whole file, instead of returning early
+    pub fn validate(&self) -> Result<(), MainE> {
+        validate_conf(&self.battery)?;
+        validate_conf(&self.ac)?;
+        Ok(())
     }
 }
 
@@ -165,7 +128,7 @@ fn main() {
         Err(e) => die!("{}", e),
     };
 
-    let mut file: Config = toml::from_str(&contents).unwrap();
+    let file: Config = toml::from_str(&contents).unwrap();
     match file.validate() {
         Ok(()) => (),
         Err(e) => die!("{}", e),
