@@ -187,7 +187,7 @@ fn main() {
     }
 }
 
-fn setup() -> Result<(), battery::Error> {
+fn setup() -> Result<(), MainE> {
     // Cli args
     // XXX cli flag to pass a config file¿
     let a = Cli::parse();
@@ -230,7 +230,7 @@ fn run(conf: &Config, cpuperc: f64, cpus: usize) -> Result<(), MainE> {
     Ok(())
 }
 
-fn info() -> Result<(), battery::Error> {
+fn info() -> Result<(), MainE> {
     println!("Turbo boost is {}",
              if Cpu::turbo() == true { "enabled" } else { "disabled" }
              );
@@ -271,7 +271,7 @@ fn info() -> Result<(), battery::Error> {
     Ok(())
 }
 
-fn turbo(on: i8) -> std::io::Result<()> {
+fn turbo(on: i8) -> Result<(), MainE> {
     let turbopath;
     let intelpstate = "/sys/devices/system/cpu/intel_pstate/no_turbo";
     let cpufreq = "/sys/devices/system/cpu/cpufreq/boost";
@@ -290,7 +290,7 @@ fn turbo(on: i8) -> std::io::Result<()> {
     Ok(())
 }
 
-fn setgovernor(gov: &str) -> std::io::Result<()> {
+fn setgovernor(gov: &str) -> Result<(), MainE> {
     let cpus = num_cpus::get();
 
     for i in 0..cpus {
@@ -303,10 +303,10 @@ fn setgovernor(gov: &str) -> std::io::Result<()> {
 }
 
 //fn avgload() -> [f64; 3] {
-fn avgload() -> std::io::Result<f64> {
+fn avgload() -> Result<f64, MainE> {
         let mut firstline = String::new();
         let mut buffer = std::io::BufReader::new(
-                    File::open("/proc/loadavg").unwrap()
+                    File::open("/proc/loadavg")?
                     );
         buffer.read_line(&mut firstline)?;
         let mut s = firstline.split_ascii_whitespace();
