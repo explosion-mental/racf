@@ -3,6 +3,8 @@ use std::time::Duration;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
+use std::env;
+use std::env::VarError;
 use getsys::{Cpu, PerCpu};
 use num_cpus;
 use serde::Deserialize;
@@ -29,6 +31,10 @@ enum MainE {
     /// Failed to deserialize the toml config file
     #[error("Failed to deserialize config file")]
     Deser(#[from] toml::de::Error),
+
+    /// Enviromental variable errors
+    #[error("Failed to read enviromental value {0}")]
+    Env(#[from] env::VarError),
 
     /// Wrong parameter of some kind
     #[error("Config: parameter '{found}' is invalid, expected: '{expected}'.")]
@@ -148,7 +154,14 @@ fn main() {
 }
 
 fn parse_conf() -> Result<Config, MainE> {
-    let contents = std::fs::read_to_string("test.toml")?;
+    let h = match env::var("XDG_CONFIG_HOME") {
+        Ok(ref o) if o.is_empty() => env::var("HOME")? + "/.config", // case XDG is ""
+        Ok(o) => o,
+        Err(VarError::NotPresent) => env::var("HOME")? + "/.config",
+        Err(VarError::NotUnicode(e)) => return Err(MainE::Env(VarError::NotUnicode(e))),
+    };
+
+    let contents = std::fs::read_to_string(h + "/racf/config.toml")?;
     let file: Config = toml::from_str(&contents)?;
     match file.validate() {
         Ok(()) => (),
