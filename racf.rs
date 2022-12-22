@@ -238,6 +238,7 @@ fn cli_flags() -> Result<(), MainE> {
         let man = battery::Manager::new()?;
         let bat = get_bat(&man);
         run(&f, Cpu::perc(Duration::from_millis(200)), &bat, num_cpus::get())?;
+        exit(0);
     } else if let Some(gov) = a.governor.as_deref() {
         check_govs(gov)?;
         setgovernor(gov)?;
