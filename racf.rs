@@ -264,9 +264,7 @@ fn run(conf: &Config, cpuperc: f64, b: &BatInfo, cpus: usize) -> Result<(), Main
 }
 
 fn info() -> Result<(), MainE> {
-    println!("Turbo boost is {}",
-             if Cpu::turbo() == true { "enabled" } else { "disabled" }
-             );
+
     println!("Average temperature: {} °C", Cpu::temp());
     println!("Average cpu percentage: {:.2}%",
              Cpu::perc(std::time::Duration::from_millis(200))
@@ -279,7 +277,9 @@ fn info() -> Result<(), MainE> {
     println!("\tModel: {}", b.model);
     println!("\tState: {}", if b.charging { "Charging" } else { "Disconected" });
 
-    println!("");
+    println!("Turbo boost is {}",
+             if Cpu::turbo() == true { "enabled" } else { "disabled" }
+             );
 
     /* get vector of values */
     let freq = PerCpu::freq();
