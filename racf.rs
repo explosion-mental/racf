@@ -3,8 +3,6 @@ use std::time::Duration;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
-use std::env;
-use std::env::VarError;
 use getsys::{Cpu, PerCpu};
 use num_cpus;
 use serde::Deserialize;
@@ -32,12 +30,12 @@ enum MainE {
     #[error("Failed to deserialize config file")]
     Deser(#[from] toml::de::Error),
 
-    /// Enviromental variable errors
-    #[error("Failed to read enviromental value {0}")]
-    Env(#[from] env::VarError),
+    /// Missing config file
+    #[error("Error: Config file not found at '/etc/racf/config.toml'.")]
+    MissingConfig,
 
     /// Wrong parameter of some kind
-    #[error("Config: parameter '{found}' is invalid, expected: '{expected}'.")]
+    #[error("Error: Config parameter '{found}' is invalid, expected: '{expected}'.")]
     WrongArg {
         expected: String,
         found: String,
@@ -152,7 +150,6 @@ fn main() {
     };
     let bat = get_bat(&man);
 
-
     loop {
         match run(&conf, cpuperc, &bat, cpus) {
             Ok(()) => (),
@@ -205,14 +202,11 @@ fn get_bat(man: &battery::Manager) -> BatInfo {
 }
 
 fn parse_conf() -> Result<Config, MainE> {
-    let h = match env::var("XDG_CONFIG_HOME") {
-        Ok(ref o) if o.is_empty() => env::var("HOME")? + "/.config", // case XDG is ""
-        Ok(o) => o,
-        Err(VarError::NotPresent) => env::var("HOME")? + "/.config",
-        Err(VarError::NotUnicode(e)) => return Err(MainE::Env(VarError::NotUnicode(e))),
-    };
-
-    let contents = std::fs::read_to_string(h + "/racf/config.toml")?;
+    let p = "/etc/racf/config.toml";
+    if ! Path::new(p).exists() {
+        return Err(MainE::MissingConfig);
+    }
+    let contents = std::fs::read_to_string(p)?;
     let file: Config = toml::from_str(&contents)?;
     match file.validate() {
         Ok(()) => (),
