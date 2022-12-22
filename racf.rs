@@ -109,14 +109,14 @@ fn main() {
         Ok(o) => o,
         Err(MainE::Io(e)) if e.kind() == io::ErrorKind::NotFound => die!("Error: configuration file doesn't exist: {}",  e),
         Err(MainE::Deser(e)) => die!("Failed to deserialize config file: {}", e),
-        Err(e) => die!("{}", e),
+        Err(e) => die!("Error with configuration file:\n  {}", e),
     };
 
     let cpus = num_cpus::get();
     let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(200)); //init val
     let man = match battery::Manager::new() {
         Ok(o) => o,
-        Err(e) => die!("{}", e),
+        Err(e) => die!("Failed to get battery info:\n  {}", e),
     };
     let bat = get_bat(&man);
 
@@ -125,7 +125,7 @@ fn main() {
             Ok(()) => (),
             Err(MainE::Bat(e)) => die!("Error reading battery values: {}", e),
             Err(MainE::Io(ref e)) if e.kind() == io::ErrorKind::PermissionDenied => die!("Error: You don't have read and write permissions on /sys: {}", e),
-            Err(e) => die!("{}", e),
+            Err(e) => die!("Error writing values on /sys:\n  {:#?}", e),
         }
         cpuperc = Cpu::perc(Duration::from_secs(
                 if bat.charging { conf.ac.interval.into() } else { conf.battery.interval.into() }
