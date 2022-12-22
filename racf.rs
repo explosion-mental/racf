@@ -118,7 +118,7 @@ fn main() {
     };
 
     let cpus = num_cpus::get();
-    let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(200)); //init val
+    let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(200)); //tmp fast value
     let man = match battery::Manager::new() {
         Ok(o) => o,
         Err(e) => die!("Failed to get battery info:\n  {}", e),
@@ -164,7 +164,7 @@ fn get_bat(man: &battery::Manager) -> BatInfo {
 
     let mut btt = match man.batteries() {
         Ok(o) => o,
-        Err(e) => die!("{}", e),
+        Err(e) => die!("Error getting batteries: {}", e),
     };
 
     let mut btt = match btt.next() {
@@ -175,12 +175,16 @@ fn get_bat(man: &battery::Manager) -> BatInfo {
         None => die!("Could not fetch information about the battery"),
     };
 
+    // update values
     match man.refresh(&mut btt) {
         Ok(()) => (),
-        Err(e) => die!("{}", e),
+        Err(e) => die!("Error updating battery: {}", e),
     };
 
-    let charging = if btt.state() == battery::State::Charging { true } else { false };
+    let state = if btt.state() == battery::State::Charging { true } else { false };
+
+    // This information is not vital for the main logic, but it's used in info().
+    // That in mind, we can ignore these.
     let vendor = match btt.vendor() {
         Some(s) => s,
         None => "Could not get battery vendor."
@@ -191,7 +195,7 @@ fn get_bat(man: &battery::Manager) -> BatInfo {
     };
 
     BatInfo {
-        charging: charging,
+        charging: state,
         vendor: vendor.to_string(),
         model: model.to_string(),
     }
@@ -204,10 +208,7 @@ fn parse_conf() -> Result<Config, MainE> {
     }
     let contents = std::fs::read_to_string(p)?;
     let file: Config = toml::from_str(&contents)?;
-    match file.validate() {
-        Ok(()) => (),
-        Err(e) => die!("Error in the config file:\n  {}", e),
-    }
+    file.validate()?;
     Ok(file)
 }
 
