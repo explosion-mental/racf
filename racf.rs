@@ -1,14 +1,15 @@
-use std::process::exit;
-use std::time::Duration;
 use std::fs::File;
+use std::io;
 use std::io::prelude::*;
 use std::path::Path;
+use std::process::exit;
+use std::time::Duration;
+
+use clap::Parser;
 use getsys::{Cpu, PerCpu};
 use num_cpus;
 use serde::Deserialize;
-use std::io;
 use thiserror::Error;
-use clap::Parser;
 
 /* macros */
 macro_rules! die {
@@ -17,6 +18,7 @@ macro_rules! die {
 }
 
 // XXX thiserror overkill?
+/// Errors types to match against in main()
 #[derive(Debug, Error)]
 enum MainE {
     /// The config file doesn't exist
@@ -42,7 +44,6 @@ enum MainE {
     },
 }
 
-
 #[derive(Parser, Debug)]
 struct Cli {
     /// Enables/disables turbo boost
@@ -63,6 +64,8 @@ struct Cli {
     list: bool,
 }
 
+/// Configuration struct for serde + toml.
+/// Two profiles for 2 w scenarios: using battery or charging
 #[derive(Debug, Deserialize)]
 struct Config {
     battery: BatConfig,
@@ -78,10 +81,56 @@ struct BatConfig {
     governor: String,
 }
 
+/// Little struct to hold useful values about the battery.
+/// This is easier and simpler than to use battery::Battery struct
 struct BatInfo {
     charging: bool,
     vendor: String,
     model: String,
+}
+
+impl Config {
+    /// Validates the configuration file
+    // XXX return a vec<> of errors of the whole file, instead of returning early
+    pub fn validate(&self) -> Result<(), MainE> {
+        validate_conf(&self.battery)?;
+        validate_conf(&self.ac)?;
+        Ok(())
+    }
+}
+
+fn main() {
+    match cli_flags() {
+        Ok(()) => (),
+        Err(e) => die!("{}", e),
+    }
+
+    let conf = match parse_conf() {
+        Ok(o) => o,
+        Err(MainE::Io(e)) if e.kind() == io::ErrorKind::NotFound => die!("Error: configuration file doesn't exist: {}",  e),
+        Err(MainE::Deser(e)) => die!("Failed to deserialize config file: {}", e),
+        Err(e) => die!("{}", e),
+    };
+
+    let cpus = num_cpus::get();
+    let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(200)); //init val
+    let man = match battery::Manager::new() {
+        Ok(o) => o,
+        Err(e) => die!("{}", e),
+    };
+    let bat = get_bat(&man);
+
+    loop {
+        match run(&conf, cpuperc, &bat, cpus) {
+            Ok(()) => (),
+            Err(MainE::Bat(e)) => die!("Error reading battery values: {}", e),
+            Err(MainE::Io(ref e)) if e.kind() == io::ErrorKind::PermissionDenied => die!("Error: You don't have read and write permissions on /sys: {}", e),
+            Err(e) => die!("{}", e),
+        }
+        cpuperc = Cpu::perc(Duration::from_secs(
+                if bat.charging { conf.ac.interval.into() } else { conf.battery.interval.into() }
+                )); //sleep
+    }
 }
 
 fn validate_conf(c: &BatConfig) -> Result<(), MainE> {
@@ -119,51 +168,7 @@ fn validate_conf(c: &BatConfig) -> Result<(), MainE> {
         Ok(())
 }
 
-impl Config {
-    /// Validates the configuration file
-    // XXX return a vec<> of errors of the whole file, instead of returning early
-    pub fn validate(&self) -> Result<(), MainE> {
-        validate_conf(&self.battery)?;
-        validate_conf(&self.ac)?;
-        Ok(())
-    }
-}
-
-fn main() {
-    match setup() {
-        Ok(()) => (),
-        Err(e) => die!("{}", e),
-    }
-
-    let conf = match parse_conf() {
-        Ok(o) => o,
-        Err(MainE::Io(e)) if e.kind() == io::ErrorKind::NotFound => die!("Error: configuration file doesn't exist: {}",  e),
-        Err(MainE::Deser(e)) => die!("Failed to deserialize config file: {}", e),
-        Err(e) => die!("{}", e),
-    };
-
-    let cpus = num_cpus::get();
-    let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(200)); //init val
-    let man = match battery::Manager::new() {
-        Ok(o) => o,
-        Err(e) => die!("{}", e),
-    };
-    let bat = get_bat(&man);
-
-    loop {
-        match run(&conf, cpuperc, &bat, cpus) {
-            Ok(()) => (),
-            Err(MainE::Bat(e)) => die!("Error reading battery values: {}", e),
-            Err(MainE::Io(ref e)) if e.kind() == io::ErrorKind::PermissionDenied => die!("Error: You don't have read and write permissions on /sys: {}", e),
-            Err(e) => die!("{}", e),
-        }
-        cpuperc = Cpu::perc(Duration::from_secs(
-                if bat.charging { conf.ac.interval.into() } else { conf.battery.interval.into() }
-                )); //sleep
-    }
-}
-
-///XXX just exit if battery errors out
+/// Simpler interface to battery crate, this fills a BatInfo struct
 fn get_bat(man: &battery::Manager) -> BatInfo {
 
     let mut btt = match man.batteries() {
@@ -215,8 +220,7 @@ fn parse_conf() -> Result<Config, MainE> {
     Ok(file)
 }
 
-fn setup() -> Result<(), MainE> {
-    // Cli args
+fn cli_flags() -> Result<(), MainE> {
     // XXX cli flag to pass a config file¿
     let a = Cli::parse();
 
@@ -242,7 +246,11 @@ fn setup() -> Result<(), MainE> {
     Ok(())
 }
 
+/// Main logic, changes the configuration to use depending on the charging state.
+/// The idea is to use turbo boost when the below parameters
+/// (cpu percentage, temperature and threshold) are met.
 fn run(conf: &Config, cpuperc: f64, b: &BatInfo, cpus: usize) -> Result<(), MainE> {
+// TODO what about threshold¿
 	let threshold: f64 = ((75 * cpus) / 100) as f64;
     let conf = if b.charging { &conf.ac } else { &conf.battery };
 
@@ -257,6 +265,7 @@ fn run(conf: &Config, cpuperc: f64, b: &BatInfo, cpus: usize) -> Result<(), Main
     Ok(())
 }
 
+/// Prints stats about the system. '-l' or '--list'
 fn info() -> Result<(), MainE> {
 
     println!("Average temperature: {} °C", Cpu::temp());
@@ -295,6 +304,7 @@ fn info() -> Result<(), MainE> {
     Ok(())
 }
 
+/// Sets the turbo boost state for all cpus.
 fn turbo(on: i8) -> Result<(), MainE> {
     let turbopath;
     let intelpstate = "/sys/devices/system/cpu/intel_pstate/no_turbo";
@@ -314,6 +324,7 @@ fn turbo(on: i8) -> Result<(), MainE> {
     Ok(())
 }
 
+/// Sets the governor for all cpus.
 fn setgovernor(gov: &str) -> Result<(), MainE> {
     let cpus = num_cpus::get();
 
@@ -326,7 +337,7 @@ fn setgovernor(gov: &str) -> Result<(), MainE> {
     Ok(())
 }
 
-//fn avgload() -> [f64; 3] {
+/// Get the load average from the file rather than the libc call.
 fn avgload() -> Result<f64, MainE> {
         let mut firstline = String::new();
         let mut buffer = std::io::BufReader::new(
