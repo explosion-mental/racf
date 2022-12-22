@@ -1,0 +1,36 @@
+# Two profiles which are enabled depending whether the system is using battery or is charging.
+[battery]
+
+# Always: turbo boost will always be on.
+# Never:  turbo boost will never be on.
+# Auto:   depending on the cpu usage, system load and temperature, turbo boost will be on/off.
+turbo = "auto"
+
+# percentage of cpu usage where turbo boost is enabled (float)
+mincpu = 5.0
+
+# degrees celsius where turbo boost is enabled
+# (mind that around 30 - 40 is usually normal usage)
+mintemp = 50
+
+# interval to in seconds
+interval = 30
+
+# Usual avaliable governors:
+# 	performance - powersave - userspace - ondemand - conservative - schedutil
+# Check supported govenors:
+# 	cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors
+#
+# NOTE FOR INTEL USERS: (modern) intel CPUs have a pstate, which is preferable
+# over the cpufreq. As a suggestion, these 'intel specific' governors are:
+# 	balance_performance - balance_power
+# Check if the path /sys/devices/system/cpu/intel_pstate/hwp_dynamic_boost exist
+governor = "powersafe"
+
+[ac]
+
+turbo = "auto"
+mincpu = 30.0
+mintemp = 70
+interval = 60
+governor = "performance"
