@@ -79,10 +79,15 @@ struct Config {
 
 #[derive(Debug, Deserialize)]
 struct BatConfig {
+    /// turbo boost, can be: 'always' - 'auto' - 'never'
     turbo: String,
+    /// interval in seconds
     interval: u32,
+    /// minimum cpu percentage to enable turbo boost
     mincpu: f64,
+    /// minimum temperature to enable turbo boost
     mintemp: u32,
+    /// governor to use, avaliable ones with -l
     governor: String,
 }
 
@@ -138,6 +143,7 @@ fn main() {
     }
 }
 
+/// Checks if the parameters for BatConfig are correct
 fn validate_conf(c: &BatConfig) -> Result<(), MainE> {
         // Check turbo
         let tb = c.turbo.to_ascii_lowercase();
@@ -155,6 +161,7 @@ fn validate_conf(c: &BatConfig) -> Result<(), MainE> {
         // Check governor
         let gov = c.governor.to_ascii_lowercase();
         check_govs(&gov)?;
+        //XXX restrict other parameters as well?
 
         Ok(())
 }
@@ -201,6 +208,7 @@ fn get_bat(man: &battery::Manager) -> BatInfo {
     }
 }
 
+/// toml + serde to get config values into structs
 fn parse_conf() -> Result<Config, MainE> {
     let p = "/etc/racf/config.toml";
     if ! Path::new(p).exists() {
@@ -354,7 +362,11 @@ fn avgload() -> Result<f64, MainE> {
         Ok(min1)
 }
 
+/// Verifies if the str slice provided is actually valid.
+/// In the case it's invalid, the program should report it and exit,
+/// since /sys will reject any of those with OS 22 error "invalid argument".
 fn check_govs(gov: &str) -> Result<(), MainE> {
+    //XXX should be the same for all cpus
     let p = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
     let contents = std::fs::read_to_string(p)?;
     let g = contents.split_ascii_whitespace();
