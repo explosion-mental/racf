@@ -21,10 +21,11 @@ macro_rules! die {
 /// Errors types to match against in main()
 #[derive(Debug, Error)]
 enum MainE {
-    /// The config file doesn't exist
+    /// I/O errors from battery crate
     #[error("Battery")]
     Bat(#[from] battery::Error),
 
+    // miscellaneous i/o errors
     #[error(transparent)]
     Io(#[from] io::Error),
 
@@ -32,12 +33,16 @@ enum MainE {
     #[error("Failed to deserialize config file")]
     Deser(#[from] toml::de::Error),
 
+    /// Failed to deserialize the toml config file
+    #[error("Governor '{found}' is invalid, use -l or --list to check avaliable governors.")]
+    WrongGov { found: String },
+
     /// Missing config file
-    #[error("Error: Config file not found at '/etc/racf/config.toml'.")]
+    #[error("Config file not found at '/etc/racf/config.toml'.")]
     MissingConfig,
 
     /// Wrong parameter of some kind
-    #[error("Error: Config parameter '{found}' is invalid, expected: '{expected}'.")]
+    #[error("Config parameter '{found}' is invalid, expected: '{expected}'.")]
     WrongArg {
         expected: String,
         found: String,
@@ -148,22 +153,8 @@ fn validate_conf(c: &BatConfig) -> Result<(), MainE> {
         }
 
         // Check governor
-        // TODO only allow for avaliable governors, current
-        // impl is generic governors (most systems should have it)
         let gov = c.governor.to_ascii_lowercase();
-
-        if !(gov == "conservative"
-        || gov == "ondemand"
-        || gov == "userspace"
-        || gov == "powersafe"
-        || gov == "performance"
-        || gov == "schedutil")
-        {
-            //errors.push(
-            return Err(
-                MainE::WrongArg { expected: "governor".to_string(), found: c.governor.to_owned() }
-                );
-        }
+        check_govs(&gov)?;
 
         Ok(())
 }
@@ -215,7 +206,7 @@ fn parse_conf() -> Result<Config, MainE> {
     let file: Config = toml::from_str(&contents)?;
     match file.validate() {
         Ok(()) => (),
-        Err(e) => die!("{}", e),
+        Err(e) => die!("Error in the config file:\n  {}", e),
     }
     Ok(file)
 }
@@ -239,6 +230,7 @@ fn cli_flags() -> Result<(), MainE> {
         let bat = get_bat(&man);
         run(&f, Cpu::perc(Duration::from_millis(200)), &bat, num_cpus::get())?;
     } else if let Some(gov) = a.governor.as_deref() {
+        check_govs(gov)?;
         setgovernor(gov)?;
         exit(0);
     }
@@ -268,11 +260,6 @@ fn run(conf: &Config, cpuperc: f64, b: &BatInfo, cpus: usize) -> Result<(), Main
 /// Prints stats about the system. '-l' or '--list'
 fn info() -> Result<(), MainE> {
 
-    println!("Average temperature: {} °C", Cpu::temp());
-    println!("Average cpu percentage: {:.2}%",
-             Cpu::perc(std::time::Duration::from_millis(200))
-             );
-
     let man = battery::Manager::new()?;
     let b = get_bat(&man);
     println!("Using battery");
@@ -282,6 +269,19 @@ fn info() -> Result<(), MainE> {
 
     println!("Turbo boost is {}",
              if Cpu::turbo() == true { "enabled" } else { "disabled" }
+             );
+
+    let p = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
+    let contents = std::fs::read_to_string(p)?;
+    let g = contents.split_ascii_whitespace();
+    print!("Avaliable governors:\n\t");
+    for i in g {
+        print!("{} ", i);
+    }
+    println!("");
+    println!("Average temperature: {} °C", Cpu::temp());
+    println!("Average cpu percentage: {:.2}%",
+             Cpu::perc(std::time::Duration::from_millis(200))
              );
 
     /* get vector of values */
@@ -351,4 +351,24 @@ fn avgload() -> Result<f64, MainE> {
 
         //[ min1, min5, min15 ]
         Ok(min1)
+}
+
+fn check_govs(gov: &str) -> Result<(), MainE> {
+    let p = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
+    let contents = std::fs::read_to_string(p)?;
+    let g = contents.split_ascii_whitespace();
+    let mut found = false;
+
+    for i in g {
+        if gov == i {
+            found = true;
+            break;
+        }
+    }
+
+    if found {
+        Ok(())
+    } else {
+        Err(MainE::WrongGov { found: gov.to_string() })
+    }
 }
