@@ -113,21 +113,23 @@ fn main() {
     use sysinfo::{ProcessExt, System, SystemExt, get_current_pid};
     //XXX check temperature with sysinfo¿
 
-    let s = System::new_all();
-    let ppid = match get_current_pid() {
-        Ok(o) => o,
-        Err(e) => die!("Failed to get pid: {}", e),
-    };
-
-    for process in s.processes_by_exact_name("racf") {
-        if process.pid() != 0.into() && process.pid() != ppid {
-            die!("racf is already running ({}).", process.pid());
-        }
-    }
-
     match cli_flags() {
         Ok(()) => (),
         Err(e) => die!("{}", e),
+    }
+
+    {// Check if racf is already running after parsing the clip flags (all of those exit())
+        let s = System::new_all();
+        let ppid = match get_current_pid() {
+            Ok(o) => o,
+            Err(e) => die!("Failed to get pid: {}", e),
+        };
+
+        for process in s.processes_by_exact_name("racf") {
+            if process.pid() != 0.into() && process.pid() != ppid {
+                die!("racf is already running ({}).", process.pid());
+            }
+        }
     }
 
     let conf = match parse_conf() {
