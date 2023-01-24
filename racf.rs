@@ -23,7 +23,7 @@ macro_rules! die {
 enum MainE {
     /// I/O errors from battery crate
     #[error("Battery")]
-    Bat(#[from] starship_battery::Error),
+    Bat(#[from] battery::Error),
 
     // miscellaneous i/o errors
     #[error(transparent)]
@@ -141,7 +141,7 @@ fn main() {
 
     let cpus = num_cpus::get();
     let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(200)); //tmp fast value
-    let man = match starship_battery::Manager::new() {
+    let man = match battery::Manager::new() {
         Ok(o) => o,
         Err(e) => die!("Failed to get battery info:\n  {}", e),
     };
@@ -184,7 +184,7 @@ fn validate_conf(c: &BatConfig) -> Result<(), MainE> {
 }
 
 /// Simpler interface to battery crate, this fills a BatInfo struct
-fn get_bat(man: &starship_battery::Manager) -> BatInfo {
+fn get_bat(man: &battery::Manager) -> BatInfo {
 
     let mut btt = match man.batteries() {
         Ok(o) => o,
@@ -205,7 +205,7 @@ fn get_bat(man: &starship_battery::Manager) -> BatInfo {
         Err(e) => die!("Error updating battery: {}", e),
     };
 
-    let state = if btt.state() == starship_battery::State::Charging { true } else { false };
+    let state = if btt.state() == battery::State::Charging { true } else { false };
 
     // This information is not vital for the main logic, but it's used in info().
     // That in mind, we can ignore these.
@@ -252,7 +252,7 @@ fn cli_flags() -> Result<(), MainE> {
         exit(0);
     } else if a.run_once {
         let f = parse_conf()?;
-        let man = starship_battery::Manager::new()?;
+        let man = battery::Manager::new()?;
         let bat = get_bat(&man);
         run(&f, Cpu::perc(Duration::from_millis(200)), &bat, num_cpus::get())?;
         exit(0);
@@ -287,7 +287,7 @@ fn run(conf: &Config, cpuperc: f64, b: &BatInfo, cpus: usize) -> Result<(), Main
 /// Prints stats about the system. '-l' or '--list'
 fn info() -> Result<(), MainE> {
 
-    let man = starship_battery::Manager::new()?;
+    let man = battery::Manager::new()?;
     let b = get_bat(&man);
     println!("Using battery");
     println!("\tVendor: {}", b.vendor);
