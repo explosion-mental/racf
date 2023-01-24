@@ -10,7 +10,7 @@ num_cpus = "1.14.0"
 #battery = "0.7.9"
 # starship has forked the battery crate and updated it's dependencies (old nix crate had a vulnerability)
 starship-battery = "0.7.9"
-getsys = { git = "https://github.com/explosion-mental/getsys", version = "1.0.0" }
+getsys = { git = "https://codeberg.org/explosion-mental/getsys", version = "1.0.0" }
 clap = { version = "4.0.29", features = ["derive"] }
 toml = "0.5.10"
 serde = { version = "1.0.150", features = ["derive"] }
