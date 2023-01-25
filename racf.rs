@@ -10,6 +10,7 @@ use getsys::{Cpu, PerCpu};
 use num_cpus;
 use serde::Deserialize;
 use thiserror::Error;
+use sysinfo::{ProcessExt, System, SystemExt, get_current_pid}; //XXX check temperature with sysinfo¿
 
 /* macros */
 macro_rules! die {
@@ -17,7 +18,6 @@ macro_rules! die {
     ($fmt:expr, $($arg:tt)*) => ({ print!(concat!($fmt, "\n"), $($arg)*); std::process::exit(1) });
 }
 
-// XXX thiserror overkill?
 /// Errors types to match against in main()
 #[derive(Debug, Error)]
 enum MainE {
@@ -139,9 +139,6 @@ fn main() {
 
 
 fn try_main() -> Result<(), MainE> {
-    use sysinfo::{ProcessExt, System, SystemExt, get_current_pid};
-    //XXX check temperature with sysinfo¿
-
     cli_flags()?;
 
     {// Check if racf is already running after parsing the clip flags (all of those exit())
@@ -401,7 +398,7 @@ fn avgload() -> Result<f64, MainE> {
 
 /// Verifies if the str slice provided is actually valid.
 /// In the case it's invalid, the program should report it and exit,
-/// since /sys will reject any of those with OS 22 error "invalid argument".
+/// given that /sys will reject any of those with OS 22 error "invalid argument".
 fn check_govs(gov: &str) -> Result<(), MainE> {
     //XXX should be the same for all cpus
     let p = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
