@@ -22,15 +22,19 @@ macro_rules! die {
 #[derive(Debug, Error)]
 enum MainE {
     /// I/O errors from battery crate
-    #[error("Battery")]
+    #[error(transparent)]
     Bat(#[from] battery::Error),
 
     // miscellaneous i/o errors
     #[error(transparent)]
     Io(#[from] io::Error),
 
+    /// In case interpretting the `avgload` file fails, let's be safe. (probably overkill)
+    #[error("Fetching from /proc/avgload failed: {warn}")]
+    Proc { warn: String },
+
     /// Failed to deserialize the toml config file
-    #[error("Failed to deserialize config file")]
+    #[error("Failed to deserialize config file, make sure toml types are correct.")]
     Deser(#[from] toml::de::Error),
 
     /// Failed to deserialize the toml config file
@@ -44,9 +48,15 @@ enum MainE {
     /// Wrong parameter of some kind
     #[error("Config parameter '{found}' is invalid, expected: '{expected}'.")]
     WrongArg {
-        expected: String,
         found: String,
+        expected: String,
     },
+
+    #[error("Error while reading a file: {0}")]
+    Read(#[source] io::Error),
+
+    #[error("Error while writting a file: {0}")]
+    Write(#[source] io::Error),
 }
 
 #[derive(Parser, Debug)]
@@ -110,13 +120,29 @@ impl Config {
 }
 
 fn main() {
+    match try_main() {
+        Ok(()) => (),
+        Err(MainE::MissingConfig) => die!("{}", MainE::MissingConfig),
+        Err(MainE::Read(e)) => die!("{}", e), //read_to_string()
+        Err(MainE::Write(e)) => die!("{}", e), //write_all()
+        Err(MainE::Io(e)) => match e.kind() {
+            io::ErrorKind::PermissionDenied => die!("Error: You don't have read and write permissions on /sys: {}", e),
+            _ => die!("{}", e),
+        }
+        Err(MainE::Deser(e)) => die!("Failed to deserialize config file: {}", e),
+        Err(MainE::Bat(e)) => die!("Error fetching battery values: {}", e),
+        Err(MainE::Proc { warn }) => die!("{}", warn),
+        Err(MainE::WrongGov { found }) => die!("{}", MainE::WrongGov { found: found }),
+        Err(MainE::WrongArg { found, expected }) => die!("{}", MainE::WrongArg { found: found, expected: expected }),
+    };
+}
+
+
+fn try_main() -> Result<(), MainE> {
     use sysinfo::{ProcessExt, System, SystemExt, get_current_pid};
     //XXX check temperature with sysinfo¿
 
-    match cli_flags() {
-        Ok(()) => (),
-        Err(e) => die!("{}", e),
-    }
+    cli_flags()?;
 
     {// Check if racf is already running after parsing the clip flags (all of those exit())
         let s = System::new_all();
@@ -132,28 +158,14 @@ fn main() {
         }
     }
 
-    let conf = match parse_conf() {
-        Ok(o) => o,
-        Err(MainE::Io(e)) if e.kind() == io::ErrorKind::NotFound => die!("Error: configuration file doesn't exist: {}",  e),
-        Err(MainE::Deser(e)) => die!("Failed to deserialize config file: {}", e),
-        Err(e) => die!("Error with configuration file:\n  {}", e),
-    };
-
+    let conf = parse_conf()?;
     let cpus = num_cpus::get();
     let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(200)); //tmp fast value
-    let man = match battery::Manager::new() {
-        Ok(o) => o,
-        Err(e) => die!("Failed to get battery info:\n  {}", e),
-    };
+    let man = battery::Manager::new()?;
     let bat = get_bat(&man);
 
     loop {
-        match run(&conf, cpuperc, &bat, cpus) {
-            Ok(()) => (),
-            Err(MainE::Bat(e)) => die!("Error reading battery values: {}", e),
-            Err(MainE::Io(ref e)) if e.kind() == io::ErrorKind::PermissionDenied => die!("Error: You don't have read and write permissions on /sys: {}", e),
-            Err(e) => die!("Error writing values on /sys:\n  {:#?}", e),
-        }
+        run(&conf, cpuperc, &bat, cpus)?;
         cpuperc = Cpu::perc(Duration::from_secs(
                 if bat.charging { conf.ac.interval.into() } else { conf.battery.interval.into() }
                 )); //sleep
@@ -231,7 +243,7 @@ fn parse_conf() -> Result<Config, MainE> {
     if ! Path::new(p).exists() {
         return Err(MainE::MissingConfig);
     }
-    let contents = std::fs::read_to_string(p)?;
+    let contents = std::fs::read_to_string(p).map_err(MainE::Read)?;
     let file: Config = toml::from_str(&contents)?;
     file.validate()?;
     Ok(file)
@@ -299,7 +311,7 @@ fn info() -> Result<(), MainE> {
              );
 
     let p = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
-    let contents = std::fs::read_to_string(p)?;
+    let contents = std::fs::read_to_string(p).map_err(MainE::Read)?;
     let g = contents.split_ascii_whitespace();
     print!("Avaliable governors:\n\t");
     for i in g {
@@ -347,7 +359,7 @@ fn turbo(on: i8) -> Result<(), MainE> {
 
 	/* change state of turbo boost */
     let mut fp = File::create(turbopath)?;
-    fp.write_all(on.to_string().as_bytes())?;
+    fp.write_all(on.to_string().as_bytes()).map_err(MainE::Write)?;
     Ok(())
 }
 
@@ -359,7 +371,7 @@ fn setgovernor(gov: &str) -> Result<(), MainE> {
         let mut fp = File::create(
             format!("/sys/devices/system/cpu/cpu{}/cpufreq/scaling_governor", i)
             )?;
-        fp.write_all(gov.as_bytes())?;
+        fp.write_all(gov.as_bytes()).map_err(MainE::Write)?;
 	}
     Ok(())
 }
@@ -370,9 +382,16 @@ fn avgload() -> Result<f64, MainE> {
         let mut buffer = std::io::BufReader::new(
                     File::open("/proc/loadavg")?
                     );
-        buffer.read_line(&mut firstline)?;
+        buffer.read_line(&mut firstline).map_err(MainE::Read)?;
         let mut s = firstline.split_ascii_whitespace();
-        let min1  = s.next().unwrap().parse::<f64>().unwrap();
+        let min1  = match s.next() {
+            Some(s) => s,
+            None => return Err(MainE::Proc { warn: "could not find".to_string() }),
+        };
+        let min1 = match min1.parse::<f64>() {
+            Ok(o) => o,
+            Err(_e) => return Err(MainE::Proc { warn: "expecting a f64: {e}".to_string() } ),
+        };
        // let min5  = s.next().unwrap().parse::<f64>().unwrap();
        // let min15 = s.next().unwrap().parse::<f64>().unwrap();
 
@@ -386,7 +405,7 @@ fn avgload() -> Result<f64, MainE> {
 fn check_govs(gov: &str) -> Result<(), MainE> {
     //XXX should be the same for all cpus
     let p = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
-    let contents = std::fs::read_to_string(p)?;
+    let contents = std::fs::read_to_string(p).map_err(MainE::Read)?;
     let g = contents.split_ascii_whitespace();
     let mut found = false;
 
