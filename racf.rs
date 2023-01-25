@@ -321,9 +321,9 @@ fn info() -> Result<(), MainE> {
     println!("Core\tGovernor\tScaling Driver\tFrequency(kHz)");
     for i in 0..freq.len() {
         println!("CPU{}\t{}\t{}\t{}", i,
-                 g.next().unwrap(),
-                 d.next().unwrap(),
-                 f.next().unwrap(),
+                 g.next().unwrap_or(&"err".to_string()),
+                 d.next().unwrap_or(&"err".to_string()),
+                 f.next().unwrap_or(&"err".to_string()),
                  );
     }
     Ok(())
