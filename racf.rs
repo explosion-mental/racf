@@ -157,7 +157,7 @@ fn try_main() -> Result<(), MainE> {
 
     let conf = parse_conf()?;
     let cpus = num_cpus::get();
-    let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(100)); //tmp fast value
+    let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(200)); //tmp fast value
     let man = battery::Manager::new()?;
     let bat = get_bat(&man)?;
 
@@ -306,7 +306,7 @@ fn info() -> Result<(), MainE> {
     println!("");
     println!("Average temperature: {} °C", Cpu::temp());
     println!("Average cpu percentage: {:.2}%",
-             Cpu::perc(std::time::Duration::from_millis(200))
+             Cpu::perc(std::time::Duration::from_millis(100))
              );
 
     /* get vector of values */
