@@ -159,7 +159,7 @@ fn try_main() -> Result<(), MainE> {
     let cpus = num_cpus::get();
     let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(200)); //tmp fast value
     let man = battery::Manager::new()?;
-    let bat = get_bat(&man);
+    let bat = get_bat(&man)?;
 
     loop {
         run(&conf, cpuperc, &bat, cpus)?;
@@ -169,19 +169,36 @@ fn try_main() -> Result<(), MainE> {
     }
 }
 
+/// Main logic, changes the configuration to use depending on the charging state.
+/// The idea is to use turbo boost when the below parameters
+/// (cpu percentage, temperature and threshold) are met.
+fn run(conf: &Config, cpuperc: f64, b: &BatInfo, cpus: usize) -> Result<(), MainE> {
+// TODO what about threshold¿
+	let threshold: f64 = ((75 * cpus) / 100) as f64;
+    let conf = if b.charging { &conf.ac } else { &conf.battery };
+
+    setgovernor(&conf.governor)?;
+    if conf.turbo == "never" {
+        turbo(0)?;
+    }
+    else if conf.turbo == "always" || avgload()? >= threshold || cpuperc >= conf.mincpu || Cpu::temp() >= conf.mintemp
+    {
+        turbo(1)?;
+    }
+
+    Ok(())
+}
+
 /// Checks if the parameters for BatConfig are correct
 fn validate_conf(c: &BatConfig) -> Result<(), MainE> {
         // Check turbo
         let tb = c.turbo.to_ascii_lowercase();
 
-        if !(tb == "always"
-        || tb == "never"
-        || tb == "auto")
-        {
+        if !(tb == "always" || tb == "never" || tb == "auto") {
             //errors.push(
             return Err(
                 MainE::WrongArg { expected: "always, never, auto".to_string(), found: c.turbo.to_owned() }
-                );
+            );
         }
 
         // Check governor
@@ -193,26 +210,17 @@ fn validate_conf(c: &BatConfig) -> Result<(), MainE> {
 }
 
 /// Simpler interface to battery crate, this fills a BatInfo struct
-fn get_bat(man: &battery::Manager) -> BatInfo {
+fn get_bat(man: &battery::Manager) -> Result<BatInfo, MainE> {
 
-    let mut btt = match man.batteries() {
-        Ok(o) => o,
-        Err(e) => die!("Error getting batteries: {}", e),
-    };
+    let mut btt = man.batteries()?;
 
     let mut btt = match btt.next() {
-        Some(bats) => match bats {
-            Ok(o) => o,
-            Err(e) => die!("{}", e),
-        },
+        Some(bats) => bats,
         None => die!("Could not fetch information about the battery"),
-    };
+    }?;
 
     // update values
-    match man.refresh(&mut btt) {
-        Ok(()) => (),
-        Err(e) => die!("Error updating battery: {}", e),
-    };
+    man.refresh(&mut btt)?;
 
     let state = if btt.state() == battery::State::Charging { true } else { false };
 
@@ -227,11 +235,11 @@ fn get_bat(man: &battery::Manager) -> BatInfo {
         None => "Could not get battery model."
     };
 
-    BatInfo {
+    Ok(BatInfo {
         charging: state,
         vendor: vendor.to_string(),
         model: model.to_string(),
-    }
+    })
 }
 
 /// toml + serde to get config values into structs
@@ -262,7 +270,7 @@ fn cli_flags() -> Result<(), MainE> {
     } else if a.run_once {
         let f = parse_conf()?;
         let man = battery::Manager::new()?;
-        let bat = get_bat(&man);
+        let bat = get_bat(&man)?;
         run(&f, Cpu::perc(Duration::from_millis(200)), &bat, num_cpus::get())?;
         exit(0);
     } else if let Some(gov) = a.governor.as_deref() {
@@ -274,30 +282,11 @@ fn cli_flags() -> Result<(), MainE> {
     Ok(())
 }
 
-/// Main logic, changes the configuration to use depending on the charging state.
-/// The idea is to use turbo boost when the below parameters
-/// (cpu percentage, temperature and threshold) are met.
-fn run(conf: &Config, cpuperc: f64, b: &BatInfo, cpus: usize) -> Result<(), MainE> {
-// TODO what about threshold¿
-	let threshold: f64 = ((75 * cpus) / 100) as f64;
-    let conf = if b.charging { &conf.ac } else { &conf.battery };
-
-    setgovernor(&conf.governor)?;
-    if conf.turbo == "never" {
-        turbo(0)?;
-    }
-    else if conf.turbo == "always" || avgload()? >= threshold || cpuperc >= conf.mincpu || Cpu::temp() >= conf.mintemp
-    {
-        turbo(1)?;
-    }
-    Ok(())
-}
-
 /// Prints stats about the system. '-l' or '--list'
 fn info() -> Result<(), MainE> {
 
     let man = battery::Manager::new()?;
-    let b = get_bat(&man);
+    let b = get_bat(&man)?;
     println!("Using battery");
     println!("\tVendor: {}", b.vendor);
     println!("\tModel: {}", b.model);
