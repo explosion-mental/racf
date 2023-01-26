@@ -1,5 +1,6 @@
 racf - simple auto cpu frequencer (IN RUST)
 ===========================================
+[![CodeBerg](https://img.shields.io/badge/Hosted_at-Codeberg-%232185D0?style=flat-square&logo=CodeBerg)](https://codeberg.org/explosion-mental/racf)
 [![license](https://img.shields.io/badge/license-GPL--3.0-lightgreen?style=flat-square)](./LICENSE)
 [![loc](https://img.shields.io/tokei/lines/github/explosion-mental/racf?color=lightgreen&style=flat-square)](./racf.rs)
 <br>
