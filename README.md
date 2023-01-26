@@ -1,7 +1,7 @@
 racf - simple auto cpu frequencer (IN RUST)
 ===========================================
-[![license](https://img.shields.io/badge/license-MIT-lightgreen?style=flat-square)](/LICENSE)
-[![loc](https://img.shields.io/tokei/lines/github/explosion-mental/racf?color=lightgreen&style=flat-square)](/racf.rs)
+[![license](https://img.shields.io/badge/license-MIT-lightgreen?style=flat-square)](./LICENSE)
+[![loc](https://img.shields.io/tokei/lines/github/explosion-mental/racf?color=lightgreen&style=flat-square)](./racf.rs)
 <br>
 a rewrite of [sacf](https://github.com/explosion-mental/sacf) in rust.
 
