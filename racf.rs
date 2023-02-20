@@ -62,6 +62,7 @@ enum MainE {
 }
 
 #[derive(Parser, Debug)]
+#[clap(version)]
 struct Cli {
     /// Enables/disables turbo boost
     //NOTE true/false should be enough, but consider using more generic words like "on" and "off"
