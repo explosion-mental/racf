@@ -18,15 +18,17 @@ macro_rules! die {
     ($fmt:expr, $($arg:tt)*) => ({ print!(concat!($fmt, "\n"), $($arg)*); std::process::exit(1) });
 }
 
+static SP: &str = "\n    "; // separates generic error mgs from original ones
+
 /// Errors types to match against in main()
 #[derive(Debug, Error)]
 enum MainE {
     /// I/O errors from battery crate
-    #[error(transparent)]
+    #[error("Failed to fetch battery info:{SP}{0}")]
     Bat(#[from] battery::Error),
 
     // miscellaneous i/o errors
-    #[error(transparent)]
+    #[error("An io error ocurred:{SP}{0}")]
     Io(#[from] io::Error),
 
     /// In case interpretting the `avgload` file fails, let's be safe. (probably overkill)
@@ -34,11 +36,11 @@ enum MainE {
     Proc { warn: String },
 
     /// Failed to deserialize the toml config file
-    #[error("Failed to deserialize config file, make sure toml types are correct.")]
+    #[error("Failed to deserialize config file, make sure toml types are correct:{SP}{0}")]
     Deser(#[from] toml::de::Error),
 
     /// Failed to deserialize the toml config file
-    #[error("Governor '{found}' is invalid, use -l or --list to check avaliable governors.")]
+    #[error("Config file: governor '{found}' is invalid, use -l or --list to check avaliable governors.")]
     WrongGov { found: String },
 
     /// Missing config file
@@ -52,10 +54,10 @@ enum MainE {
         expected: String,
     },
 
-    #[error("Error while reading a file: {0}")]
+    #[error("Error while reading a file:{SP}{0}")]
     Read(#[source] io::Error),
 
-    #[error("Error while writting a file: {0}")]
+    #[error("Error while writting a file:{SP}{0}")]
     Write(#[source] io::Error),
 }
 
@@ -122,18 +124,11 @@ impl Config {
 fn main() {
     match try_main() {
         Ok(()) => (),
-        Err(MainE::MissingConfig) => die!("{}", MainE::MissingConfig),
-        Err(MainE::Read(e)) => die!("{}", e), //read_to_string()
-        Err(MainE::Write(e)) => die!("{}", e), //write_all()
         Err(MainE::Io(e)) => match e.kind() {
-            io::ErrorKind::PermissionDenied => die!("Error: You don't have read and write permissions on /sys: {}", e),
-            _ => die!("{}", e),
+            io::ErrorKind::PermissionDenied => die!("You need read/write permissions in /sys:\n    {}", e),
+            _ => die!("{}", MainE::Io(e)),
         }
-        Err(MainE::Deser(e)) => die!("Failed to deserialize config file: {}", e),
-        Err(MainE::Bat(e)) => die!("Error fetching battery values: {}", e),
-        Err(MainE::Proc { warn }) => die!("{}", warn),
-        Err(MainE::WrongGov { found }) => die!("{}", MainE::WrongGov { found: found }),
-        Err(MainE::WrongArg { found, expected }) => die!("{}", MainE::WrongArg { found: found, expected: expected }),
+        Err(e) => die!("{}", e),
     };
 }
 
