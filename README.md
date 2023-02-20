@@ -4,10 +4,11 @@ racf - simple auto cpu frequencer (IN RUST)
 [![license](https://img.shields.io/badge/license-GPL--3.0-lightgreen?style=flat-square)](./LICENSE)
 [![loc](https://img.shields.io/tokei/lines/github/explosion-mental/racf?color=lightgreen&style=flat-square)](./racf.rs)
 <br>
-a rewrite of [sacf](https://github.com/explosion-mental/sacf) in rust.
 
-Wait for version 1.0.0
+Simple and configurable tool that dynamically switches turbo boost.
 
+
+A rewrite of [sacf](https://github.com/explosion-mental/sacf) in rust.
 
 Building and Installing
 -----------------------
