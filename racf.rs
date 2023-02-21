@@ -14,8 +14,8 @@ use sysinfo::{ProcessExt, System, SystemExt, get_current_pid}; //XXX check tempe
 
 /* macros */
 macro_rules! die {
-    ($fmt:expr) => ({ print!(concat!($fmt, "\n")); std::process::exit(1) });
-    ($fmt:expr, $($arg:tt)*) => ({ print!(concat!($fmt, "\n"), $($arg)*); std::process::exit(1) });
+    ($fmt:expr) => ({ println!($fmt); std::process::exit(1) });
+    ($fmt:expr, $($arg:tt)*) => ({ println!($fmt, $($arg)*); std::process::exit(1) });
 }
 
 static SP: &str = "\n    "; // separates generic error mgs from original ones
@@ -126,10 +126,10 @@ fn main() {
     match try_main() {
         Ok(()) => (),
         Err(MainE::Io(e)) => match e.kind() {
-            io::ErrorKind::PermissionDenied => die!("You need read/write permissions in /sys:\n    {}", e),
+            io::ErrorKind::PermissionDenied => die!("You need read/write permissions in /sys:{SP}{e}"),
             _ => die!("{}", MainE::Io(e)),
         }
-        Err(e) => die!("{}", e),
+        Err(e) => die!("{e}"),
     };
 }
 
@@ -141,7 +141,7 @@ fn try_main() -> Result<(), MainE> {
         let s = System::new_all();
         let ppid = match get_current_pid() {
             Ok(o) => o,
-            Err(e) => die!("Failed to get pid: {}", e),
+            Err(e) => die!("Failed to get pid: {e}"),
         };
 
         for process in s.processes_by_exact_name("racf") {
