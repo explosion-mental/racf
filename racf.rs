@@ -13,6 +13,7 @@ use thiserror::Error;
 use sysinfo::{ProcessExt, System, SystemExt, get_current_pid}; //XXX check temperature with sysinfo¿
 
 /* macros */
+//TODO use ExitCode
 macro_rules! die {
     ($fmt:expr) => ({ println!($fmt); std::process::exit(1) });
     ($fmt:expr, $($arg:tt)*) => ({ println!($fmt, $($arg)*); std::process::exit(1) });
@@ -122,6 +123,7 @@ impl Config {
     }
 }
 
+//TODO use ExitCode
 fn main() {
     match try_main() {
         Ok(()) => (),
