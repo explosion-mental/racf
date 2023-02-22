@@ -15,8 +15,8 @@ use sysinfo::{ProcessExt, System, SystemExt, get_current_pid}; //XXX check tempe
 /* macros */
 //TODO use ExitCode
 macro_rules! die {
-    ($fmt:expr) => ({ println!($fmt); std::process::exit(1) });
-    ($fmt:expr, $($arg:tt)*) => ({ println!($fmt, $($arg)*); std::process::exit(1) });
+    ($fmt:expr) => ({ eprintln!($fmt); std::process::exit(1) });
+    ($fmt:expr, $($arg:tt)*) => ({ eprintln!($fmt, $($arg)*); std::process::exit(1) });
 }
 
 static SP: &str = "\n    "; // separates generic error mgs from original ones
