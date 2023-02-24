@@ -192,7 +192,7 @@ fn validate_conf(c: &BatConfig) -> Result<(), MainE> {
         if !(tb == "always" || tb == "never" || tb == "auto") {
             //errors.push(
             return Err(
-                MainE::WrongTurbo(c.turbo.to_owned())
+                MainE::WrongTurbo(c.turbo.to_string())
             );
         }
 
