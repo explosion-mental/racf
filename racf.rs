@@ -36,27 +36,27 @@ enum MainE {
     #[error("Fetching from /proc/avgload failed: {warn}")]
     Proc { warn: String },
 
-    /// Failed to deserialize the toml config file
-    #[error("Failed to deserialize config file, make sure toml types are correct:{SP}{0}")]
-    Deser(#[from] toml::de::Error),
-
-    /// Not a valid governor, given your /sys fs
-    #[error("Config file: governor '{0}' is invalid, use -l or --list to check avaliable governors.")]
-    WrongGov(String),
-
-    /// Missing config file
-    #[error("Config file not found at '/etc/racf/config.toml'.")]
-    MissingConfig,
-
-    /// Wrong turbo boost parameter
-    #[error("Config file: turbo as '{0}' is invalid, expected: 'always', 'never' or 'auto'.")]
-    WrongTurbo(String),
-
     #[error("Error while reading a file:{SP}{0}")]
     Read(#[source] io::Error),
 
     #[error("Error while writting a file:{SP}{0}")]
     Write(#[source] io::Error),
+
+    /// Failed to deserialize the toml config file
+    #[error("Config file: Failed to deserialize, make sure toml types are correct:{SP}{0}")]
+    Deser(#[from] toml::de::Error),
+
+    /// Missing config file
+    #[error("Config file: Not found at '/etc/racf/config.toml'.")]
+    MissingConfig,
+
+    /// Not a valid governor, given your /sys fs
+    #[error("Config file: governor '{0}' is invalid, use -l or --list to check avaliable governors.")]
+    WrongGov(String),
+
+    /// Wrong turbo boost parameter
+    #[error("Config file: turbo as '{0}' is invalid, expected: 'always', 'never' or 'auto'.")]
+    WrongTurbo(String),
 }
 
 #[derive(Parser, Debug)]
