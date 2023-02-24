@@ -1,4 +1,5 @@
 # Two profiles which are enabled depending whether the system is using battery or is charging.
+# pd: capitalization doesn't matter.
 [battery]
 
 # Always: turbo boost will always be on.
