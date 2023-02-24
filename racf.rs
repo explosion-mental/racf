@@ -40,20 +40,17 @@ enum MainE {
     #[error("Failed to deserialize config file, make sure toml types are correct:{SP}{0}")]
     Deser(#[from] toml::de::Error),
 
-    /// Failed to deserialize the toml config file
-    #[error("Config file: governor '{found}' is invalid, use -l or --list to check avaliable governors.")]
-    WrongGov { found: String },
+    /// Not a valid governor, given your /sys fs
+    #[error("Config file: governor '{0}' is invalid, use -l or --list to check avaliable governors.")]
+    WrongGov(String),
 
     /// Missing config file
     #[error("Config file not found at '/etc/racf/config.toml'.")]
     MissingConfig,
 
-    /// Wrong parameter of some kind
-    #[error("Config parameter '{found}' is invalid, expected: '{expected}'.")]
-    WrongArg {
-        found: String,
-        expected: String,
-    },
+    /// Wrong turbo boost parameter
+    #[error("Config file: turbo as '{0}' is invalid, expected: 'always', 'never' or 'auto'.")]
+    WrongTurbo(String),
 
     #[error("Error while reading a file:{SP}{0}")]
     Read(#[source] io::Error),
@@ -195,7 +192,7 @@ fn validate_conf(c: &BatConfig) -> Result<(), MainE> {
         if !(tb == "always" || tb == "never" || tb == "auto") {
             //errors.push(
             return Err(
-                MainE::WrongArg { expected: "always, never, auto".to_string(), found: c.turbo.to_owned() }
+                MainE::WrongTurbo(c.turbo.to_owned())
             );
         }
 
@@ -403,6 +400,6 @@ fn check_govs(gov: &str) -> Result<(), MainE> {
     if found {
         Ok(())
     } else {
-        Err(MainE::WrongGov { found: gov.to_string() })
+        Err(MainE::WrongGov(gov.to_string()))
     }
 }
