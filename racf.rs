@@ -33,8 +33,8 @@ enum MainE {
     Io(#[from] io::Error),
 
     /// In case interpretting the `avgload` file fails, let's be safe. (probably overkill)
-    #[error("Fetching from /proc/avgload failed: {warn}")]
-    Proc { warn: String },
+    #[error("Fetching from /proc/avgload failed:{SP}{0}.")]
+    Proc(String),
 
     #[error("Error while reading a file:{SP}{0}")]
     Read(#[source] io::Error),
@@ -367,11 +367,11 @@ fn avgload() -> Result<f64, MainE> {
         let mut s = firstline.split_ascii_whitespace();
         let min1  = match s.next() {
             Some(s) => s,
-            None => return Err(MainE::Proc { warn: "could not find".to_string() }),
+            None => return Err(MainE::Proc("could not find".to_string())),
         };
         let min1 = match min1.parse::<f64>() {
             Ok(o) => o,
-            Err(_e) => return Err(MainE::Proc { warn: "expecting a f64: {e}".to_string() } ),
+            Err(_e) => return Err(MainE::Proc("expecting a f64: {e}".to_string())),
         };
        // let min5  = s.next().unwrap().parse::<f64>().unwrap();
        // let min15 = s.next().unwrap().parse::<f64>().unwrap();
