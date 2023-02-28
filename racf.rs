@@ -13,18 +13,12 @@ use thiserror::Error;
 use sysinfo::{ProcessExt, System, SystemExt, get_current_pid}; //XXX check temperature with sysinfo¿
 use std::process::ExitCode;
 
-/* macros */
-macro_rules! die {
-    ($fmt:expr) => ({ eprintln!($fmt); std::process::exit(1) });
-    ($fmt:expr, $($arg:tt)*) => ({ eprintln!($fmt, $($arg)*); std::process::exit(1) });
-}
-
 static SP: &str = "\n    "; // separates generic error mgs from original ones
 
 /// Errors types to match against in main()
 #[derive(Debug, Error)]
 enum MainE {
-    /// I/O errors from battery crate
+    /// general I/O errors from battery crate
     #[error("Failed to fetch battery info:{SP}{0}")]
     Bat(#[from] battery::Error),
 
@@ -33,7 +27,7 @@ enum MainE {
     Io(#[from] io::Error),
 
     /// In case interpretting the `avgload` file fails, let's be safe. (probably overkill)
-    #[error("Fetching from /proc/avgload failed:{SP}{0}.")]
+    #[error("Fetching from /proc/avgload failed:{SP}{0}")]
     Proc(String),
 
     #[error("Error while reading a file:{SP}{0}")]
@@ -57,7 +51,21 @@ enum MainE {
     /// Wrong turbo boost parameter
     #[error("Config file: turbo as '{0}' is invalid, expected: 'always', 'never' or 'auto'.")]
     WrongTurbo(String),
+
+    /// Already running
+    #[error("Stopped. racf is already running at {0}.")]
+    Running(String),
+
+    /// Could not get the parent pid of this proc
+    #[error("Couldn't get process pid:{SP}{0}")]
+    Pid(String),
+
+    /// `.next()` returned `None`, meaning no battery found...
+    #[error("Error: Could not find a battery in this device.")]
+    NoBat,
 }
+
+// XXX are devices without a battery (desktop) valid systems to use this?
 
 #[derive(Parser, Debug)]
 #[clap(version)]
@@ -146,12 +154,12 @@ fn try_main() -> Result<(), MainE> {
         let s = System::new_all();
         let ppid = match get_current_pid() {
             Ok(o) => o,
-            Err(e) => die!("Failed to get pid: {e}"),
+            Err(e) => return Err(MainE::Pid(e.to_string())),
         };
 
         for process in s.processes_by_exact_name("racf") {
             if process.pid() != 0.into() && process.pid() != ppid {
-                die!("racf is already running ({}).", process.pid());
+                return Err(MainE::Running(process.pid().to_string()));
             }
         }
     }
@@ -217,7 +225,7 @@ fn get_bat(man: &battery::Manager) -> Result<BatInfo, MainE> {
 
     let mut btt = match btt.next() {
         Some(bats) => bats,
-        None => die!("Could not fetch information about the battery"),
+        None => return Err(MainE::NoBat),
     }?;
 
     // update values
