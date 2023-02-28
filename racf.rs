@@ -12,6 +12,9 @@ use thiserror::Error;
 use sysinfo::{ProcessExt, System, SystemExt, get_current_pid}; //XXX check temperature with sysinfo¿
 use std::process::ExitCode;
 
+#[cfg(test)]
+mod tests;
+
 static SP: &str = "\n    "; // separates generic error mgs from original ones
 
 /// Errors types to match against in main()
