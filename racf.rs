@@ -223,6 +223,7 @@ fn get_bat(man: &battery::Manager) -> Result<BatInfo, MainE> {
 
     let mut btt = man.batteries()?;
 
+    // shadow original value, which will not be used
     let mut btt = match btt.next() {
         Some(bats) => bats,
         None => return Err(MainE::NoBat),
@@ -231,23 +232,13 @@ fn get_bat(man: &battery::Manager) -> Result<BatInfo, MainE> {
     // update values
     man.refresh(&mut btt)?;
 
-    let state = if btt.state() == battery::State::Charging { true } else { false };
-
-    // This information is not vital for the main logic, but it's used in info().
-    // That in mind, we can ignore these.
-    let vendor = match btt.vendor() {
-        Some(s) => s,
-        None => "Could not get battery vendor."
-    };
-    let model  = match btt.model() {
-        Some(s) => s,
-        None => "Could not get battery model."
-    };
-
     Ok(BatInfo {
-        charging: state,
-        vendor: vendor.to_string(),
-        model: model.to_string(),
+        charging: btt.state() == battery::State::Charging,
+        // the two fields below are not vital for the main logic, but it's used in info().
+        // with that in mind, we can ignore these.
+        // TODO avoid this and move it into info() entirely.
+        vendor: btt.vendor().unwrap_or("Could not get battery vendor.").to_string(),
+        model: btt.model().unwrap_or("Could not get battery model.").to_string(),
     })
 }
 
