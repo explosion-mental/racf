@@ -378,14 +378,10 @@ fn avgload() -> Result<f64, MainE> {
 /// In the case it's invalid, the program should report it and exit,
 /// given that /sys will reject any of those with OS 22 error "invalid argument".
 fn check_govs(gov: &str) -> Result<(), MainE> {
-    let mut found = false;
-
-    for i in get_govs()?.split_ascii_whitespace() {
-        if gov == i {
-            found = true;
-            break;
-        }
-    }
+    let found =
+        get_govs()?
+            .split_ascii_whitespace()
+            .any(|x| x == gov);
 
     if found {
         Ok(())
