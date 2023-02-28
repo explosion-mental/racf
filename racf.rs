@@ -7,7 +7,6 @@ use std::time::Duration;
 
 use clap::Parser;
 use getsys::{Cpu, PerCpu};
-use num_cpus;
 use serde::Deserialize;
 use thiserror::Error;
 use sysinfo::{ProcessExt, System, SystemExt, get_current_pid}; //XXX check temperature with sysinfo¿
@@ -143,14 +142,14 @@ fn main() -> ExitCode {
     };
 
     eprintln!("{e}");
-    return ExitCode::FAILURE;
+    ExitCode::FAILURE
 }
 
 
 fn try_main() -> Result<(), MainE> {
-    cli_flags()?;
+    cli_flags()?; // all cli flags exit()
 
-    {// Check if racf is already running after parsing the clip flags (all of those exit())
+    {// Check if racf is already running after parsing the clip flags
         let s = System::new_all();
         let ppid = match get_current_pid() {
             Ok(o) => o,
@@ -182,8 +181,8 @@ fn try_main() -> Result<(), MainE> {
 /// The idea is to use turbo boost when the below parameters
 /// (cpu percentage, temperature and threshold) are met.
 fn run(conf: &Config, cpuperc: f64, b: &BatInfo, cpus: usize) -> Result<(), MainE> {
-// TODO what about threshold¿
-	let threshold: f64 = ((75 * cpus) / 100) as f64;
+    // TODO should threshold be configurable?
+    let threshold: f64 = ((75 * cpus) / 100) as f64;
     let conf = if b.charging { &conf.ac } else { &conf.battery };
 
     setgovernor(&conf.governor)?;
@@ -200,27 +199,26 @@ fn run(conf: &Config, cpuperc: f64, b: &BatInfo, cpus: usize) -> Result<(), Main
 
 /// Checks if the parameters for BatConfig are correct
 fn validate_conf(c: &BatConfig) -> Result<(), MainE> {
-        // Check turbo
-        let tb = c.turbo.to_ascii_lowercase();
+    // Check turbo
+    let tb = c.turbo.to_ascii_lowercase();
 
-        if !(tb == "always" || tb == "never" || tb == "auto") {
-            //errors.push(
-            return Err(
-                MainE::WrongTurbo(c.turbo.to_string())
-            );
-        }
+    if !(tb == "always" || tb == "never" || tb == "auto") {
+        //errors.push(
+        return Err(
+            MainE::WrongTurbo(c.turbo.to_string())
+        );
+    }
 
-        // Check governor
-        let gov = c.governor.to_ascii_lowercase();
-        check_govs(&gov)?;
-        //XXX restrict other parameters as well?
+    // Check governor
+    let gov = c.governor.to_ascii_lowercase();
+    check_govs(&gov)?;
+    //XXX restrict other parameters as well?
 
-        Ok(())
+    Ok(())
 }
 
 /// Simpler interface to battery crate, this fills a BatInfo struct
 fn get_bat(man: &battery::Manager) -> Result<BatInfo, MainE> {
-
     let mut btt = man.batteries()?;
 
     // shadow original value, which will not be used
@@ -293,8 +291,7 @@ fn info() -> Result<(), MainE> {
     println!("\tState: {}", if b.charging { "Charging" } else { "Disconected" });
 
     println!("Turbo boost is {}",
-             if Cpu::turbo() == true { "enabled" } else { "disabled" }
-             );
+             if Cpu::turbo() { "enabled" } else { "disabled" });
 
     print!("Avaliable governors:\n\t{}", get_govs()?);
 
@@ -325,6 +322,7 @@ fn info() -> Result<(), MainE> {
 
 /// Sets the turbo boost state for all cpus.
 fn turbo(on: i8) -> Result<(), MainE> {
+    // TODO refactor `intel_pstate` detection and list it in info()
     let turbopath;
     let intelpstate = "/sys/devices/system/cpu/intel_pstate/no_turbo";
     let cpufreq = "/sys/devices/system/cpu/cpufreq/boost";
@@ -337,7 +335,7 @@ fn turbo(on: i8) -> Result<(), MainE> {
         return Ok(()); /* TODO show error output */
     }
 
-	/* change state of turbo boost */
+    /* change state of turbo boost */
     let mut fp = File::create(turbopath)?;
     fp.write_all(on.to_string().as_bytes()).map_err(MainE::Write)?;
     Ok(())
@@ -370,10 +368,12 @@ fn avgload() -> Result<f64, MainE> {
         };
         let min1 = match min1.parse::<f64>() {
             Ok(o) => o,
-            Err(_e) => return Err(MainE::Proc("expecting a f64: {e}".to_string())),
+            Err(e) => return Err(MainE::Proc(
+                    format!("expecting a f64: {e}")
+                    )),
         };
-       // let min5  = s.next().unwrap().parse::<f64>().unwrap();
-       // let min15 = s.next().unwrap().parse::<f64>().unwrap();
+        // let min5  = s.next().unwrap().parse::<f64>().unwrap();
+        // let min15 = s.next().unwrap().parse::<f64>().unwrap();
 
         //[ min1, min5, min15 ]
         Ok(min1)
@@ -399,5 +399,5 @@ fn check_govs(gov: &str) -> Result<(), MainE> {
 fn get_govs() -> Result<String, MainE> {
     //XXX should be the same for all cpus
     let p = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
-    Ok(std::fs::read_to_string(p).map_err(MainE::Read)?)
+    std::fs::read_to_string(p).map_err(MainE::Read)
 }
