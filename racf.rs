@@ -11,9 +11,9 @@ use num_cpus;
 use serde::Deserialize;
 use thiserror::Error;
 use sysinfo::{ProcessExt, System, SystemExt, get_current_pid}; //XXX check temperature with sysinfo¿
+use std::process::ExitCode;
 
 /* macros */
-//TODO use ExitCode
 macro_rules! die {
     ($fmt:expr) => ({ eprintln!($fmt); std::process::exit(1) });
     ($fmt:expr, $($arg:tt)*) => ({ eprintln!($fmt, $($arg)*); std::process::exit(1) });
@@ -120,16 +120,22 @@ impl Config {
     }
 }
 
-//TODO use ExitCode
-fn main() {
-    match try_main() {
-        Ok(()) => (),
-        Err(MainE::Io(e)) => match e.kind() {
-            io::ErrorKind::PermissionDenied => die!("You need read/write permissions in /sys:{SP}{e}"),
-            _ => die!("{}", MainE::Io(e)),
-        }
-        Err(e) => die!("{e}"),
+fn main() -> ExitCode {
+    let Err(e) = try_main() else {
+        return ExitCode::SUCCESS;
     };
+
+    if let MainE::Io(e) = &e {
+        if e.kind() == io::ErrorKind::PermissionDenied {
+            eprintln!("You need read/write permissions in /sys:{SP}{e}");
+        } else {
+            eprintln!("{e}");
+        }
+        return ExitCode::FAILURE;
+    };
+
+    eprintln!("{e}");
+    return ExitCode::FAILURE;
 }
 
 
