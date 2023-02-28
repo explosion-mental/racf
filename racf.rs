@@ -291,14 +291,8 @@ fn info() -> Result<(), MainE> {
              if Cpu::turbo() == true { "enabled" } else { "disabled" }
              );
 
-    let p = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
-    let contents = std::fs::read_to_string(p).map_err(MainE::Read)?;
-    let g = contents.split_ascii_whitespace();
-    print!("Avaliable governors:\n\t");
-    for i in g {
-        print!("{} ", i);
-    }
-    println!("");
+    print!("Avaliable governors:\n\t{}", get_govs()?);
+
     println!("Average temperature: {} °C", Cpu::temp());
     println!("Average cpu percentage: {:.2}%",
              Cpu::perc(std::time::Duration::from_millis(100))
@@ -384,13 +378,9 @@ fn avgload() -> Result<f64, MainE> {
 /// In the case it's invalid, the program should report it and exit,
 /// given that /sys will reject any of those with OS 22 error "invalid argument".
 fn check_govs(gov: &str) -> Result<(), MainE> {
-    //XXX should be the same for all cpus
-    let p = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
-    let contents = std::fs::read_to_string(p).map_err(MainE::Read)?;
-    let g = contents.split_ascii_whitespace();
     let mut found = false;
 
-    for i in g {
+    for i in get_govs()?.split_ascii_whitespace() {
         if gov == i {
             found = true;
             break;
@@ -402,4 +392,11 @@ fn check_govs(gov: &str) -> Result<(), MainE> {
     } else {
         Err(MainE::WrongGov(gov.to_string()))
     }
+}
+
+/// Returns avaliable governors for the system in a `String`.
+fn get_govs() -> Result<String, MainE> {
+    //XXX should be the same for all cpus
+    let p = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
+    Ok(std::fs::read_to_string(p).map_err(MainE::Read)?)
 }
