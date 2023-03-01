@@ -10,7 +10,29 @@ kernel governor in order to have a corresponding relationship between the
 computer's capabilities and the actual usage.
 
 
+Another important variable is whether the machine is charging or using the
+battery, depending on this state `racf` will use the corresponding
+configuration profile.
+
+
+This is intended mainly for battery based machines like laptops. Desktops
+**could** benefit, I haven't really thought about it that much (e.g. those
+systems would only be on the '[ac]' profile).
+
+
 A rewrite of [sacf](https://github.com/explosion-mental/sacf) in rust.
+
+Usage
+-----
+
+```sh
+racf --help
+```
+
+**Note** A very helpful flag is `--run-once` which, runs once; and thus no need
+for `racf` to stay in the background. This way you can manually tweak your
+system with the help of `racf` whenever you actually need it (might be useful
+to put this in the status bar).
 
 Building and Installing
 -----------------------
