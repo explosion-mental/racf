@@ -1,8 +1,11 @@
 [package]
 name = "racf"
-version = "1.0.7"
+version = "1.0.8"
 edition = "2021"
 authors = [ "explosion-mental" ]
+keywords = [ "cli", "stats", "kernel-governor", "turbo-boost", "usage", "battery-saving" ]
+description = "Tool that dynamicaly switches turbo boost and kernel governor based on usage and charger state"
+repository = "https://codeberg.org/explosion-mental/racf"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

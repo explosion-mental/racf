@@ -70,7 +70,7 @@ enum MainE {
 // XXX are devices without a battery (desktop) valid systems to use this?
 
 #[derive(Parser, Debug)]
-#[clap(version)]
+#[command(version, about, long_about = None)]
 struct Cli {
     /// Enables/disables turbo boost
     //NOTE true/false should be enough, but consider using more generic words like "on" and "off"
