@@ -1,5 +1,5 @@
-racf - simple auto cpu frequencer (IN RUST)
-===========================================
+racf - auto cpu frequencer
+==========================
 [![CodeBerg](https://img.shields.io/badge/Hosted_at-Codeberg-%232185D0?style=flat-square&logo=CodeBerg)](https://codeberg.org/explosion-mental/racf)
 [![license](https://img.shields.io/badge/license-GPL--3.0-lightgreen?style=flat-square)](./LICENSE)
 [![loc](https://img.shields.io/tokei/lines/github/explosion-mental/racf?color=lightgreen&style=flat-square)](./racf.rs)
@@ -22,7 +22,7 @@ and then, optionally, move it to your PATH. In the example bellow I use
 cargo build --release
 cp -f ./target/release/racf /usr/local/bin/
 ```
-Alternatively use `cargo install`
+Alternatively use `cargo install racf`
 
 Configuration
 -------------
@@ -31,19 +31,10 @@ with the respective documentation for it's parameters.
 First create `/etc/racf` directory, then you can move or copy the config in that dir.
 Note that on most systems you will need root to write to `/etc`
 
-Copy the config file:
+You can copy the config file when building with:
 ```sh
 mkdir -p /etc/racf
 cp -f config.toml /etc/racf/config.toml
 ```
 
-Crates
-------
-* num_cpus = "1.14.0"
-* battery = { version = "0.7.*", package = "starship-battery" } - using starship
-* getsys = { git = "https://codeberg.org/explosion-mental/getsys", version = "1.0.0" } - my custom lib
-* clap = { version = "4.0.29", features = ["derive"] }
-* toml = "0.5.10"
-* serde = { version = "1.0.150", features = ["derive"] }
-* thiserror = "1.0.38"
-* sysinfo = { version = "0.27.7", default-features = false }
+or simply copy and paste it.
