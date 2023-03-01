@@ -1,60 +1,7 @@
 use crate::Config;
-/// some tests to keep an eye on `racf` functionality over time
-///TODO macro for a sample config file
+///! some tests to keep an eye on `racf` functionality over time
 
-
-///tests if `racf` can detect invalid governor parameters (for your system)
-#[test]
-fn invalid_governor() {
-    let file: Config = toml::from_str(
-"
-[ac]
-turbo = \"auto\"
-mincpu = 30.0
-mintemp = 70
-interval = 60
-governor = \"performance\"
-[battery]
-turbo = \"auto\"
-mincpu = 30.0
-mintemp = 70
-interval = 60
-governor = \"erformance\" ") // <-- should be "performance"
-        .expect("NeverFailing");
-
-    let f = file.validate();
-    if f.is_ok() { // Should error out when parsing `erformance`
-        dbg!(&f);
-        panic!("\nParsed an invalid governor.\n-->'{:?}'\n\n", f);
-    };
-}
-
-///tests if `racf` can detect invalid turbo boost parameters
-#[test]
-fn invalid_turbo() {
-    let file: Config = toml::from_str(
-// turbo values should be 'auto' - 'always' - 'never'
-"
-[ac]
-turbo = \"aut\"
-mincpu = 30.0
-mintemp = 70
-interval = 60
-governor = \"performance\"
-[battery]
-turbo = \"auto\"
-mincpu = 30.0
-mintemp = 70
-interval = 60
-governor = \"performance\" ")
-        .expect("NeverFailing");
-
-    let f = file.validate();
-    if f.is_ok() { // Should error out when parsing `aut`
-        dbg!(&f);
-        panic!("\nParsed an invalid turbo value.\n-->'{:?}'\n\n", f);
-    };
-}
+// TODO macro for a sample config file
 
 /// Checks the [config.toml](/config.toml) of the repo
 #[test]
@@ -73,4 +20,57 @@ fn check_config() {
         dbg!(&f);
         panic!("\nThere is an issue with validating `config.toml`:\n-->'{:?}'\n\n", f);
     }
+}
+
+/// tests if `racf` can detect invalid governor parameters (for your system)
+#[test]
+fn invalid_governor() {
+    let file: Config = toml::from_str(
+"
+[ac]
+turbo = 'auto'
+mincpu = 30.0
+mintemp = 70
+interval = 60
+governor = 'performance'
+[battery]
+turbo = 'auto'
+mincpu = 30.0
+mintemp = 70
+interval = 60
+governor = \"erformance\" ") // <-- should be "performance"
+        .expect("NeverFailing");
+
+    let f = file.validate();
+    if f.is_ok() { // Should error out when parsing `erformance`
+        dbg!(&f);
+        panic!("\nParsed an invalid governor.\n-->'{:?}'\n\n", f);
+    };
+}
+
+/// tests if `racf` can detect invalid turbo boost parameters
+#[test]
+fn invalid_turbo() {
+    let file: Config = toml::from_str(
+// turbo values should be 'auto' - 'always' - 'never'
+"
+[ac]
+turbo = \"aut\"
+mincpu = 30.0
+mintemp = 70
+interval = 60
+governor = 'performance'
+[battery]
+turbo = 'auto'
+mincpu = 30.0
+mintemp = 70
+interval = 60
+governor = 'performance' ")
+        .expect("NeverFailing");
+
+    let f = file.validate();
+    if f.is_ok() { // Should error out when parsing `aut`
+        dbg!(&f);
+        panic!("\nParsed an invalid turbo value.\n-->'{:?}'\n\n", f);
+    };
 }
