@@ -109,7 +109,8 @@ dependencies = [
 [[package]]
 name = "getsys"
 version = "1.0.1"
-source = "git+https://codeberg.org/explosion-mental/getsys#631cc90ff864f584187a0c5d21c08ae231fbd914"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4421f2af5e448fa7d79e3652480b96468e400c6e67e832dc0a1c3d4fb02ec698"
 dependencies = [
  "glob",
 ]
