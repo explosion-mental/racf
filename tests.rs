@@ -1,4 +1,7 @@
-use crate::{Config, MainE};
+use crate::Config;
+/// some tests to keep an eye on `racf` functionality over time
+///TODO macro for a sample config file
+
 
 ///tests if `racf` can detect invalid governor parameters (for your system)
 #[test]
