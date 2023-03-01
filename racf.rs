@@ -289,15 +289,15 @@ fn info() -> Result<(), MainE> {
 
     let man = battery::Manager::new()?;
     let b = get_bat(&man)?;
-    println!("Using battery");
-    println!("\tVendor: {}", b.vendor);
-    println!("\tModel: {}", b.model);
-    println!("\tState: {}", if b.charging { "Charging" } else { "Disconected" });
+    print!("Using battery:");
+    print!("{SP}Vendor: {}", b.vendor);
+    print!("{SP}Model: {}", b.model);
+    print!("{SP}State: {}", if b.charging { "Charging" } else { "Disconected" });
 
     println!("Turbo boost is {}",
              if Cpu::turbo() { "enabled" } else { "disabled" });
 
-    print!("Avaliable governors:\n\t{}", get_govs()?);
+    print!("Avaliable governors:{SP}{}", get_govs()?);
 
     println!("Average temperature: {} °C", Cpu::temp());
     println!("Average cpu percentage: {:.2}%",
