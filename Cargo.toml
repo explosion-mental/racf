@@ -2,6 +2,7 @@
 name = "racf"
 version = "1.0.8"
 edition = "2021"
+license = "GPL-3.0"
 authors = [ "explosion-mental" ]
 keywords = [ "cli", "kernel-governor", "turbo-boost", "usage", "battery-saving" ]
 categories = [ "command-line-utilities" ]
