@@ -15,7 +15,7 @@ repository = "https://codeberg.org/explosion-mental/racf"
 num_cpus = "1.14.0"
 # starship has forked the battery crate and updated it's dependencies (old nix crate had a vulnerability)
 battery = { version = "0.7.*", package = "starship-battery" }
-getsys = { git = "https://codeberg.org/explosion-mental/getsys", version = "1.0.0" }
+getsys = "1.0.*"
 clap = { version = "4.0.29", features = ["derive"] }
 toml = "0.5.10"
 serde = { version = "1.0.150", features = ["derive"] }
