@@ -94,12 +94,13 @@ struct Cli {
 /// Two profiles for 2 w scenarios: using battery or charging
 #[derive(Debug, Deserialize)]
 struct Config {
-    battery: BatConfig,
-    ac: BatConfig,
+    battery: Profile,
+    ac: Profile,
 }
 
+/// Profile: can be for `[battery]` or `[ac]`
 #[derive(Debug, Deserialize)]
-struct BatConfig {
+struct Profile {
     /// turbo boost, can be: 'always' - 'auto' - 'never'
     turbo: String,
     /// interval in seconds
@@ -200,8 +201,8 @@ fn run(conf: &Config, cpuperc: f64, b: &BatInfo, cpus: usize) -> Result<(), Main
     Ok(())
 }
 
-/// Checks if the parameters for BatConfig are correct
-fn validate_conf(c: &BatConfig) -> Result<(), MainE> {
+/// Checks if the parameters for `Profile` are correct
+fn validate_conf(c: &Profile) -> Result<(), MainE> {
     // Check turbo
     let tb = c.turbo.to_ascii_lowercase();
 
