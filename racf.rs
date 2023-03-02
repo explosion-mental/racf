@@ -268,33 +268,42 @@ fn cli_flags() -> Result<(), MainE> {
 fn info() -> Result<(), MainE> {
     let man = battery::Manager::new()?;
     let b = get_bat(&man)?;
-    print!("Using battery:");
-    print!("{SP}Vendor: {}", b.vendor().unwrap_or("Could not get battery vendor."));
-    print!("{SP}Model: {}", b.model().unwrap_or("Could not get battery model."));
-    print!("{SP}State: {}", if b.state() == battery::State::Charging { "Charging" } else { "Disconected" });
+    let vendor = b.vendor().unwrap_or("Could not get battery vendor.");
+    let model = b.model().unwrap_or("Could not get battery model.");
+    let state = if b.state() == battery::State::Charging { "Charging" } else { "Disconected" };
+    let turbo = if Cpu::turbo() { "enabled" } else { "disabled" };
 
-    println!();
-    println!("Turbo boost is {}",
-             if Cpu::turbo() { "enabled" } else { "disabled" });
-
-    print!("Avaliable governors:{SP}{}", get_govs()?);
-
-    println!("Average temperature: {} °C", Cpu::temp());
-    println!("Average cpu percentage: {:.2}%",
-             Cpu::perc(std::time::Duration::from_millis(100))
-             );
+    println!(
+"Using battery:
+    Vendor: {}
+    Model: {}
+    State: {}
+Turbo boost is {}
+Avaliable governors:{SP}{}
+Average temperature: {} °C
+Average cpu percentage: {:.2}%
+Core\tGovernor\tScaling Driver\tFrequency(kHz)",
+    vendor,
+    model,
+    state,
+    turbo,
+    get_govs()?.trim(),
+    Cpu::temp(),
+    Cpu::perc(std::time::Duration::from_millis(100))
+    );
 
     /* get vector of values */
-    let freq = PerCpu::freq();
-    let gov  = PerCpu::governor();
-    let driv = PerCpu::driver();
+    let f = PerCpu::freq();
+    let g = PerCpu::governor();
+    let d = PerCpu::driver();
 
-    let mut f = freq.iter();
-    let mut g = gov.iter();
-    let mut d = driv.iter();
+    let sz = f.len();
 
-    println!("Core\tGovernor\tScaling Driver\tFrequency(kHz)");
-    for i in 0..freq.len() {
+    let mut f = f.iter();
+    let mut g = g.iter();
+    let mut d = d.iter();
+
+    for i in 0..sz {
         println!("CPU{}\t{}\t{}\t{}", i,
                  g.next().unwrap_or(&"err".to_string()),
                  d.next().unwrap_or(&"err".to_string()),
