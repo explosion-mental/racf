@@ -113,14 +113,6 @@ struct Profile {
     governor: String,
 }
 
-/// Little struct to hold useful values about the battery.
-/// This is easier and simpler than to use battery::Battery struct
-struct BatInfo {
-    charging: bool,
-    vendor: String,
-    model: String,
-}
-
 impl Config {
     /// Validates the configuration file
     // XXX return a vec<> of errors of the whole file, instead of returning early
@@ -176,7 +168,7 @@ fn try_main() -> Result<(), MainE> {
     loop {
         run(&conf, cpuperc, &bat, cpus)?;
         cpuperc = Cpu::perc(Duration::from_secs(
-                if bat.charging { conf.ac.interval.into() } else { conf.battery.interval.into() }
+                if bat.state() == battery::State::Charging { conf.ac.interval.into() } else { conf.battery.interval.into() }
                 )); //sleep
     }
 }
@@ -184,10 +176,10 @@ fn try_main() -> Result<(), MainE> {
 /// Main logic, changes the configuration to use depending on the charging state.
 /// The idea is to use turbo boost when the below parameters
 /// (cpu percentage, temperature and threshold) are met.
-fn run(conf: &Config, cpuperc: f64, b: &BatInfo, cpus: usize) -> Result<(), MainE> {
+fn run(conf: &Config, cpuperc: f64, b: &battery::Battery, cpus: usize) -> Result<(), MainE> {
     // TODO should threshold be configurable?
     let threshold: f64 = ((75 * cpus) / 100) as f64;
-    let conf = if b.charging { &conf.ac } else { &conf.battery };
+    let conf = if b.state() == battery::State::Charging { &conf.ac } else { &conf.battery };
 
     setgovernor(&conf.governor)?;
     if conf.turbo == "never" {
@@ -221,27 +213,14 @@ fn validate_conf(c: &Profile) -> Result<(), MainE> {
     Ok(())
 }
 
-/// Simpler interface to battery crate, this fills a BatInfo struct
-fn get_bat(man: &battery::Manager) -> Result<BatInfo, MainE> {
-    let mut btt = man.batteries()?;
-
-    // shadow original value, which will not be used
-    let mut btt = match btt.next() {
+/// Update battery info and make sure it is not None
+fn get_bat(man: &battery::Manager) -> Result<battery::Battery, MainE> {
+    let mut btt = match man.batteries()?.next() {
         Some(bats) => bats,
         None => return Err(MainE::NoBat),
     }?;
-
-    // update values
-    man.refresh(&mut btt)?;
-
-    Ok(BatInfo {
-        charging: btt.state() == battery::State::Charging,
-        // the two fields below are not vital for the main logic, but it's used in info().
-        // with that in mind, we can ignore these.
-        // TODO avoid this and move it into info() entirely.
-        vendor: btt.vendor().unwrap_or("Could not get battery vendor.").to_string(),
-        model: btt.model().unwrap_or("Could not get battery model.").to_string(),
-    })
+    man.refresh(&mut btt)?; // update values
+    Ok(btt)
 }
 
 /// toml + serde to get config values into structs
@@ -290,11 +269,11 @@ fn info() -> Result<(), MainE> {
     let man = battery::Manager::new()?;
     let b = get_bat(&man)?;
     print!("Using battery:");
-    print!("{SP}Vendor: {}", b.vendor);
-    print!("{SP}Model: {}", b.model);
-    print!("{SP}State: {}", if b.charging { "Charging" } else { "Disconected" });
+    print!("{SP}Vendor: {}", b.vendor().unwrap_or("Could not get battery vendor."));
+    print!("{SP}Model: {}", b.model().unwrap_or("Could not get battery model."));
+    print!("{SP}State: {}", if b.state() == battery::State::Charging { "Charging" } else { "Disconected" });
 
-    println!("");
+    println!();
     println!("Turbo boost is {}",
              if Cpu::turbo() { "enabled" } else { "disabled" });
 
