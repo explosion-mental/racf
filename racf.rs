@@ -285,8 +285,8 @@ fn cli_flags() -> Result<(), MainE> {
 }
 
 /// Prints stats about the system. '-l' or '--list'
+// XXX think about colored output
 fn info() -> Result<(), MainE> {
-
     let man = battery::Manager::new()?;
     let b = get_bat(&man)?;
     print!("Using battery:");
@@ -294,6 +294,7 @@ fn info() -> Result<(), MainE> {
     print!("{SP}Model: {}", b.model);
     print!("{SP}State: {}", if b.charging { "Charging" } else { "Disconected" });
 
+    println!("");
     println!("Turbo boost is {}",
              if Cpu::turbo() { "enabled" } else { "disabled" });
 
