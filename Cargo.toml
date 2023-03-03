@@ -1,6 +1,6 @@
 [package]
 name = "racf"
-version = "1.1.0"
+version = "1.2.0"
 edition = "2021"
 license = "GPL-3.0"
 authors = [ "explosion-mental" ]
@@ -20,8 +20,8 @@ clap = { version = "4.0.29", features = ["derive"] }
 toml = "0.5.10"
 serde = { version = "1.0.150", features = ["derive"] }
 thiserror = "1.0.38"
-sysinfo = { version = "0.27.7", default-features = false }
 owo-colors = "3"
+psutil = { version = "3", default-features = false, features = [ "process" ] }
 
 [[bin]]
 name = "racf"

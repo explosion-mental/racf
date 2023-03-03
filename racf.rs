@@ -10,8 +10,8 @@ use clap::Parser;
 use getsys::{Cpu, PerCpu};
 use serde::Deserialize;
 use thiserror::Error;
-use sysinfo::{ProcessExt, System, SystemExt, get_current_pid}; //XXX check temperature with sysinfo¿
 use owo_colors::{OwoColorize, AnsiColors};
+use psutil::process::processes;
 
 #[cfg(test)]
 mod tests;
@@ -59,13 +59,17 @@ enum MainE {
     #[error("Stopped. racf is already running at {0}.")]
     Running(String),
 
-    /// Could not get the parent pid of this proc
-    #[error("Couldn't get process pid:{SP}{0}")]
-    Pid(String),
-
     /// `.next()` returned `None`, meaning no battery found...
     #[error("Error: Could not find a battery in this device.")]
     NoBat,
+
+    /// `processes()` failed
+    #[error("Error: Could not get processes list:{SP}{0}")]
+    PsUtil(#[from] psutil::Error),
+
+    /// methods from `procesees()` failed: `Result<Process, ProcessError>`
+    #[error("Error: Could not get pid/name of the processes list:{SP}{0}")]
+    ProcErr(#[from] psutil::process::ProcessError),
 }
 
 // XXX are devices without a battery (desktop) valid systems to use this?
@@ -146,18 +150,14 @@ fn main() -> ExitCode {
 fn try_main() -> Result<(), MainE> {
     cli_flags()?; // all cli flags exit()
 
-    //TODO think about using `pidof` with std::Command or another method, since the `sysinfo` crate
-    //     adds around 9Mb of memory usage
-    {// Check if racf is already running after parsing the clip flags
-        let s = System::new_all();
-        let ppid = match get_current_pid() {
-            Ok(o) => o,
-            Err(e) => return Err(MainE::Pid(e.to_string())),
-        };
+    {
+        let ppid = std::process::id();
+        let processes = processes()?;
 
-        for process in s.processes_by_exact_name("racf") {
-            if process.pid() != 0.into() && process.pid() != ppid {
-                return Err(MainE::Running(process.pid().to_string()));
+        for p in processes {
+            let p = p?;
+            if p.name()? == "racf" && p.pid() != ppid {
+                return Err(MainE::Running(p.pid().to_string()));
             }
         }
     }
