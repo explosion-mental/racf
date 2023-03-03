@@ -325,7 +325,11 @@ fn turbo(on: i8) -> Result<(), MainE> {
     } else if Path::new(cpufreq).exists() {
         turbopath = cpufreq;
     } else { /* turbo boost is not supported */
-        return Ok(()); /* TODO show error output */
+        //TODO breaking change would be a crash, let's just report an error for now.
+        //FIXME wait for getsys v2
+        //return Err(MainE::NoTurbo);
+        eprintln!("Warning: Turbo boost is not supported");
+        return Ok(());
     }
 
     /* change state of turbo boost */
