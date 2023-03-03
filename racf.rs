@@ -4,13 +4,14 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::process::exit;
 use std::time::Duration;
+use std::process::ExitCode;
 
 use clap::Parser;
 use getsys::{Cpu, PerCpu};
 use serde::Deserialize;
 use thiserror::Error;
 use sysinfo::{ProcessExt, System, SystemExt, get_current_pid}; //XXX check temperature with sysinfo¿
-use std::process::ExitCode;
+use owo_colors::{OwoColorize, AnsiColors};
 
 #[cfg(test)]
 mod tests;
@@ -270,26 +271,42 @@ fn info() -> Result<(), MainE> {
     let b = get_bat(&man)?;
     let vendor = b.vendor().unwrap_or("Could not get battery vendor.");
     let model = b.model().unwrap_or("Could not get battery model.");
-    let state = if b.state() == battery::State::Charging { "Charging" } else { "Disconected" };
-    let turbo = if Cpu::turbo() { "enabled" } else { "disabled" };
+
+    let mut turbocol = AnsiColors::Green;
+    let turbo = if Cpu::turbo() {
+        "enabled".color(turbocol)
+    } else {
+        turbocol = AnsiColors::Red;
+        "disabled".color(turbocol)
+    };
+
+    let mut statecol = AnsiColors::Green;
+    let state = if b.state() == battery::State::Charging {
+        "Charging".color(statecol)
+    } else {
+        statecol = AnsiColors::Red;
+        "Disconected".color(statecol)
+    };
 
     println!(
-"Using battery:
-    Vendor: {}
-    Model: {}
-    State: {}
+"{} battery is {} ({})
 Turbo boost is {}
 Avaliable governors:{SP}{}
 Average temperature: {} °C
 Average cpu percentage: {:.2}%
-Core\tGovernor\tScaling Driver\tFrequency(kHz)",
-    vendor,
-    model,
-    state,
-    turbo,
+{}\t{}\t{}\t{} {}",
+    model.bold().blue(),
+    state.bold(),
+    vendor.italic(),
+    turbo.bold(),
     get_govs()?.trim(),
     Cpu::temp(),
-    Cpu::perc(std::time::Duration::from_millis(100))
+    Cpu::perc(std::time::Duration::from_millis(100)),
+    "Core".bold().underline().yellow(),
+    "Governor".bold().underline().yellow(),
+    "Scaling Driver".bold().underline().yellow(),
+    "Frequency".bold().underline().yellow(),
+    "(kHz)".italic().yellow(),
     );
 
     /* get vector of values */
