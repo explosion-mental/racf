@@ -146,6 +146,8 @@ fn main() -> ExitCode {
 fn try_main() -> Result<(), MainE> {
     cli_flags()?; // all cli flags exit()
 
+    //TODO think about using `pidof` with std::Command or another method, since the `sysinfo` crate
+    //     adds around 9Mb of memory usage
     {// Check if racf is already running after parsing the clip flags
         let s = System::new_all();
         let ppid = match get_current_pid() {
