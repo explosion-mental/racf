@@ -48,10 +48,10 @@ governor = \"erformance\" ") // <-- should be "performance"
     };
 }
 
-/// tests if `racf` can detect invalid turbo boost parameters
+/// tests if `racf` can detect invalid turbo boost parameters which are of `TurboKind`
 #[test]
 fn invalid_turbo() {
-    let file: Config = toml::from_str(
+    let f: Result<Config, toml::de::Error> = toml::from_str(
 // turbo values should be 'auto' - 'always' - 'never'
 "
 [ac]
@@ -65,12 +65,10 @@ turbo = 'auto'
 mincpu = 30.0
 mintemp = 70
 interval = 60
-governor = 'performance' ")
-        .expect("NeverFailing");
+governor = 'performance' ");
 
-    let f = file.validate();
-    if f.is_ok() { // Should error out when parsing `aut`
+    if f.is_ok() { // `serde` should error out when parsing `aut`
         dbg!(&f);
-        panic!("\nParsed an invalid turbo value.\n-->'{:?}'\n\n", f);
+        panic!("\nParsed an invalid turbo value and returned no errors.\n-->'{:?}'\n\n", f);
     };
 }

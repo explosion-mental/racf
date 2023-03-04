@@ -51,10 +51,6 @@ enum MainE {
     #[error("Config file: governor '{0}' is invalid, use -l or --list to check avaliable governors.")]
     WrongGov(String),
 
-    /// Wrong turbo boost parameter
-    #[error("Config file: turbo as '{0}' is invalid, expected: 'always', 'never' or 'auto'.")]
-    WrongTurbo(String),
-
     /// Already running
     #[error("Stopped. racf is already running at {0}.")]
     Running(u32),
@@ -103,11 +99,23 @@ struct Config {
     ac: Profile,
 }
 
+/// Possible values of turbo. When `config.toml` turbo parameters don't match these, `toml` will
+/// generate an error with the line and the expected values.
+/// (With these there is no need to `.validate()` to match these values)
+#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum TurboKind {
+    Always,
+    Auto,
+    Never,
+}
+
 /// Profile: can be for `[battery]` or `[ac]`
 #[derive(Debug, Deserialize)]
+#[serde(rename_all(serialize = "lowercase", deserialize = "lowercase"))]
 struct Profile {
     /// turbo boost, can be: 'always' - 'auto' - 'never'
-    turbo: String,
+    turbo: TurboKind,
     /// interval in seconds
     interval: u32,
     /// minimum cpu percentage to enable turbo boost
@@ -115,6 +123,7 @@ struct Profile {
     /// minimum temperature to enable turbo boost
     mintemp: u32,
     /// governor to use, avaliable ones with -l
+    //TODO maybe do the same thing as with TurboKind, since there are only so many governors
     governor: String,
 }
 
@@ -185,10 +194,10 @@ fn run(conf: &Config, cpuperc: f64, b: &battery::Battery, cpus: usize) -> Result
     let conf = if b.state() == battery::State::Charging { &conf.ac } else { &conf.battery };
 
     setgovernor(&conf.governor)?;
-    if conf.turbo == "never" {
+    if conf.turbo == TurboKind::Never {
         turbo(0)?;
     }
-    else if conf.turbo == "always" || avgload()? >= threshold || cpuperc >= conf.mincpu || Cpu::temp() >= conf.mintemp
+    else if conf.turbo == TurboKind::Always || avgload()? >= threshold || cpuperc >= conf.mincpu || Cpu::temp() >= conf.mintemp
     {
         turbo(1)?;
     }
@@ -198,15 +207,6 @@ fn run(conf: &Config, cpuperc: f64, b: &battery::Battery, cpus: usize) -> Result
 
 /// Checks if the parameters for `Profile` are correct
 fn validate_conf(c: &Profile) -> Result<(), MainE> {
-    // Check turbo
-    let tb = c.turbo.to_ascii_lowercase();
-
-    if !(tb == "always" || tb == "never" || tb == "auto") {
-        //errors.push(
-        return Err(
-            MainE::WrongTurbo(c.turbo.to_string())
-        );
-    }
 
     // Check governor
     let gov = c.governor.to_ascii_lowercase();
