@@ -1,6 +1,6 @@
 [package]
 name = "racf"
-version = "1.2.0"
+version = "1.2.1"
 edition = "2021"
 license = "GPL-3.0"
 authors = [ "explosion-mental" ]
@@ -12,14 +12,14 @@ repository = "https://codeberg.org/explosion-mental/racf"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-num_cpus = "1.14.0"
+num_cpus = "1.14"
 # starship has forked the battery crate and updated it's dependencies (old nix crate had a vulnerability)
 battery = { version = "0.7.*", package = "starship-battery" }
-getsys = "1.0.*"
-clap = { version = "4.0.29", features = ["derive"] }
-toml = "0.5.10"
-serde = { version = "1.0.150", features = ["derive"] }
-thiserror = "1.0.38"
+getsys = "1"
+clap = { version = "4.1", features = ["derive"] }
+toml = "0.5"
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "1"
 owo-colors = "3"
 psutil = { version = "3", default-features = false, features = [ "process" ] }
 
