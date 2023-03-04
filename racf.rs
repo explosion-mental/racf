@@ -57,7 +57,7 @@ enum MainE {
 
     /// Already running
     #[error("Stopped. racf is already running at {0}.")]
-    Running(String),
+    Running(u32),
 
     /// `.next()` returned `None`, meaning no battery found...
     #[error("Error: Could not find a battery in this device.")]
@@ -157,7 +157,7 @@ fn try_main() -> Result<(), MainE> {
         for p in processes {
             let p = p?;
             if p.name()? == "racf" && p.pid() != ppid {
-                return Err(MainE::Running(p.pid().to_string()));
+                return Err(MainE::Running(p.pid()));
             }
         }
     }
