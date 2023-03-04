@@ -22,6 +22,9 @@ systems would only be on the '[ac]' profile).
 
 A rewrite of [sacf](https://github.com/explosion-mental/sacf) in rust.
 
+
+Reference: [cpufreq](https://www.kernel.org/doc/html/v4.14/admin-guide/pm/cpufreq.html)
+
 Usage
 -----
 
