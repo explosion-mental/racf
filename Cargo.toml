@@ -1,6 +1,6 @@
 [package]
 name = "racf"
-version = "1.3.1"
+version = "1.3.2"
 edition = "2021"
 license = "GPL-3.0"
 authors = [ "explosion-mental" ]
@@ -12,16 +12,16 @@ repository = "https://codeberg.org/explosion-mental/racf"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-num_cpus = "1.14"
-# starship has forked the battery crate and updated it's dependencies (old nix crate had a vulnerability)
-battery = { version = "0.7.*", package = "starship-battery" }
-getsys = "1"
-clap = { version = "4.1", features = ["derive"] }
-toml = "0.5"
-serde = { version = "1.0", features = ["derive"] }
-thiserror = "1"
+getsys     = "1" # my own little lib to handle PerCpu stuff
+num_cpus   = "1.14"
 owo-colors = "3"
-psutil = { version = "3", default-features = false, features = [ "process" ] }
+toml       = "0.7"
+thiserror  = "1"
+# starship has forked the battery crate and updated it's dependencies (old nix crate had a vulnerability)
+battery = { version = "0.7", package = "starship-battery" }
+clap    = { version = "4.1", features = ["derive"] }
+serde   = { version = "1.0", features = ["derive"] }
+psutil  = { version = "3", default-features = false, features = [ "process" ] }
 
 [[bin]]
 name = "racf"
