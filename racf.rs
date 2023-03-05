@@ -458,7 +458,7 @@ fn check_freq(freq: u32) -> Result<(), MainE> {
     }
 }
 
-//TODO evaluate between `../cpuX/` and `../policyX/`
+//TODO evaluate to use either `../cpuX/` or `../policyX/`
 
 /// Returns avaliable governors for the system in a `String`.
 fn get_govs() -> Result<String, MainE> {
