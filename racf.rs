@@ -3,8 +3,8 @@ use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 use std::process::exit;
-use std::time::Duration;
 use std::process::ExitCode;
+use std::time::Duration;
 
 use clap::Parser;
 use getsys::{Cpu, PerCpu};
@@ -16,7 +16,8 @@ use psutil::process::processes;
 #[cfg(test)]
 mod tests;
 
-static SP: &str = "\n    "; // separates generic error mgs from original ones
+/// separates generic error mgs from original ones
+static SP: &str = "\n    ";
 
 /// Errors types to match against in main()
 #[derive(Debug, Error)]
@@ -338,9 +339,9 @@ Average cpu percentage: {:.2}%
 
     for i in 0..sz {
         println!("CPU{}\t{}\t{}\t{}", i,
-                 g.next().unwrap_or(&"err".to_string()),
-                 d.next().unwrap_or(&"err".to_string()),
-                 f.next().unwrap_or(&"err".to_string()),
+                 g.next().unwrap_or(&"err".to_owned()),
+                 d.next().unwrap_or(&"err".to_owned()),
+                 f.next().unwrap_or(&"err".to_owned()),
                  );
     }
     Ok(())
@@ -396,9 +397,8 @@ fn avgload() -> Result<f64, MainE> {
         .map_err(MainE::Read)?;
     let mut s = firstline.split_ascii_whitespace();
 
-    let min1  = match s.next() {
-        Some(s) => s,
-        None => return Err(MainE::Proc("could not find".to_string())),
+    let Some(min1) = s.next() else {
+        return Err(MainE::Proc("could not find".to_owned()));
     };
 
     let min1: f64 = match min1.parse() {
@@ -440,7 +440,7 @@ fn check_govs(gov: &str) -> Result<(), MainE> {
     if found {
         Ok(())
     } else {
-        Err(MainE::WrongGov(gov.to_string()))
+        Err(MainE::WrongGov(gov.to_owned()))
     }
 }
 
