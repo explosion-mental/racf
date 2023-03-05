@@ -52,15 +52,19 @@ Alternatively use `cargo install racf`
 
 Configuration
 -------------
-This repo contains [config.toml](./config.toml) configuration example
+This repo contains [racf.toml](./racf.toml) configuration example
 with the respective documentation for it's parameters.
-First create `/etc/racf` directory, then you can move or copy the config in that dir.
-Note that on most systems you will need root to write to `/etc`
 
-You can copy the config file when building with:
+`racf` searches config files in:
+1. `/etc/racf.toml`
+2. `/etc/racf/racf.toml`
+3. `/etc/racf/config.toml`
+
+The first config file that is found is used.
+
+
+You can copy the file like so:
 ```sh
-mkdir -p /etc/racf
-cp -f config.toml /etc/racf/config.toml
+cp -f racf.toml /etc/racf.toml
 ```
-
 or simply copy and paste it.

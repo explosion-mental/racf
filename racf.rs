@@ -249,11 +249,14 @@ fn get_bat(man: &battery::Manager) -> Result<battery::Battery, MainE> {
 fn parse_conf() -> Result<Config, MainE> {
     let p1 = "/etc/racf/config.toml";
     let p2 = "/etc/racf.toml";
+    let p3 = "/etc/racf/racf.toml";
 
     let p = if Path::new(p1).exists() {
         p1
     } else if Path::new(p2).exists() {
         p2
+    } else if Path::new(p3).exists() {
+        p3
     } else {
         return Err(MainE::MissingConfig);
     };
