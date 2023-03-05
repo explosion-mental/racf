@@ -1,3 +1,4 @@
+//! # `racf`
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
@@ -79,6 +80,8 @@ enum MainE {
 
 // XXX are devices without a battery (desktop) valid systems to use this?
 
+/// Cli flags
+// consider a cli flag to accept a config file
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Cli {
@@ -163,7 +166,7 @@ fn main() -> ExitCode {
     ExitCode::FAILURE
 }
 
-
+/// fallible version of main
 fn try_main() -> Result<(), MainE> {
     cli_flags()?; // all cli flags exit()
 
@@ -254,8 +257,8 @@ fn parse_conf() -> Result<Config, MainE> {
     Ok(file)
 }
 
+/// parse cli flags
 fn cli_flags() -> Result<(), MainE> {
-    // XXX cli flag to pass a config file¿
     let a = Cli::parse();
 
     if a.list {
@@ -414,6 +417,7 @@ fn avgload() -> Result<f64, MainE> {
     Ok(min1)
 }
 
+/// write to `scaling_setspeed` of every cpu
 fn setfrequency(freq: u32) -> Result<(), MainE> {
     let cpus = num_cpus::get();
 
@@ -444,6 +448,7 @@ fn check_govs(gov: &str) -> Result<(), MainE> {
     }
 }
 
+/// Checks for the frequency provided is present in /sys
 fn check_freq(freq: u32) -> Result<(), MainE> {
     let found =
         get_freq()?
@@ -457,9 +462,10 @@ fn check_freq(freq: u32) -> Result<(), MainE> {
     }
 }
 
+//TODO evaluate between `../cpuX/` and `../policyX/`
+
 /// Returns avaliable governors for the system in a `String`.
 fn get_govs() -> Result<String, MainE> {
-    //XXX should be the same for all cpus
     let p = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
     std::fs::read_to_string(p).map_err(MainE::Read)
 }
@@ -467,7 +473,6 @@ fn get_govs() -> Result<String, MainE> {
 /// Returns avaliable frequencies for the system in a `String`, These can be used **only** in the
 /// `userspace` governor.
 fn get_freq() -> Result<String, MainE> {
-    //XXX should be the same for all cpus
     let p = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies";
     std::fs::read_to_string(p).map_err(MainE::Read)
 }
