@@ -285,6 +285,7 @@ fn info() -> Result<(), MainE> {
 "{} battery is {} ({})
 Turbo boost is {}
 Avaliable governors:{SP}{}
+Avaliable {} frequencies:{SP}{}
 Average temperature: {} °C
 Average cpu percentage: {:.2}%
 {}\t{}\t{}\t{} {}",
@@ -293,6 +294,8 @@ Average cpu percentage: {:.2}%
     vendor.italic(),
     turbo.bold(),
     get_govs()?.trim(),
+    "userspace".italic(),
+    get_freq()?.trim(),
     Cpu::temp(),
     Cpu::perc(Duration::from_millis(100)),
     "Core".bold().underline().yellow(),
@@ -411,5 +414,13 @@ fn check_govs(gov: &str) -> Result<(), MainE> {
 fn get_govs() -> Result<String, MainE> {
     //XXX should be the same for all cpus
     let p = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
+    std::fs::read_to_string(p).map_err(MainE::Read)
+}
+
+/// Returns avaliable frequencies for the system in a `String`, These can be used **only** in the
+/// `userspace` governor.
+fn get_freq() -> Result<String, MainE> {
+    //XXX should be the same for all cpus
+    let p = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies";
     std::fs::read_to_string(p).map_err(MainE::Read)
 }
