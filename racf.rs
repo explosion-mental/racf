@@ -129,7 +129,6 @@ struct Profile {
 
 impl Config {
     /// Validates the configuration file
-    // XXX return a vec<> of errors of the whole file, instead of returning early
     pub fn validate(&self) -> Result<(), MainE> {
         validate_conf(&self.battery)?;
         validate_conf(&self.ac)?;
@@ -145,10 +144,8 @@ fn main() -> ExitCode {
     if let MainE::Io(e) = &e {
         if e.kind() == io::ErrorKind::PermissionDenied {
             eprintln!("You need read/write permissions in /sys:{SP}{e}");
-        } else {
-            eprintln!("{e}");
+            return ExitCode::FAILURE;
         }
-        return ExitCode::FAILURE;
     };
 
     eprintln!("{e}");
@@ -173,7 +170,7 @@ fn try_main() -> Result<(), MainE> {
 
     let conf = parse_conf()?;
     let cpus = num_cpus::get();
-    let mut cpuperc = Cpu::perc(std::time::Duration::from_millis(200)); //tmp fast value
+    let mut cpuperc = Cpu::perc(Duration::from_millis(200)); //tmp fast value
     let man = battery::Manager::new()?;
     let bat = get_bat(&man)?;
 
@@ -195,11 +192,11 @@ fn run(conf: &Config, cpuperc: f64, b: &battery::Battery, cpus: usize) -> Result
 
     setgovernor(&conf.governor)?;
     if conf.turbo == TurboKind::Never {
-        turbo(0)?;
+        turbo(false)?;
     }
     else if conf.turbo == TurboKind::Always || avgload()? >= threshold || cpuperc >= conf.mincpu || Cpu::temp() >= conf.mintemp
     {
-        turbo(1)?;
+        turbo(true)?;
     }
 
     Ok(())
@@ -207,8 +204,6 @@ fn run(conf: &Config, cpuperc: f64, b: &battery::Battery, cpus: usize) -> Result
 
 /// Checks if the parameters for `Profile` are correct
 fn validate_conf(c: &Profile) -> Result<(), MainE> {
-
-    // Check governor
     let gov = c.governor.to_ascii_lowercase();
     check_govs(&gov)?;
     //XXX restrict other parameters as well?
@@ -246,10 +241,7 @@ fn cli_flags() -> Result<(), MainE> {
         info()?;
         exit(0);
     } else if let Some(t) = a.turbo {
-        match t {
-            true => turbo(1)?,
-            false => turbo(0)?,
-        }
+        turbo(t)?;
         exit(0);
     } else if a.run_once {
         let f = parse_conf()?;
@@ -267,7 +259,6 @@ fn cli_flags() -> Result<(), MainE> {
 }
 
 /// Prints stats about the system. '-l' or '--list'
-// XXX think about colored output
 fn info() -> Result<(), MainE> {
     let man = battery::Manager::new()?;
     let b = get_bat(&man)?;
@@ -303,7 +294,7 @@ Average cpu percentage: {:.2}%
     turbo.bold(),
     get_govs()?.trim(),
     Cpu::temp(),
-    Cpu::perc(std::time::Duration::from_millis(100)),
+    Cpu::perc(Duration::from_millis(100)),
     "Core".bold().underline().yellow(),
     "Governor".bold().underline().yellow(),
     "Scaling Driver".bold().underline().yellow(),
@@ -333,7 +324,7 @@ Average cpu percentage: {:.2}%
 }
 
 /// Sets the turbo boost state for all cpus.
-fn turbo(on: i8) -> Result<(), MainE> {
+fn turbo(on: bool) -> Result<(), MainE> {
     // TODO refactor `intel_pstate` detection and list it in info()
     let turbopath;
     let intelpstate = "/sys/devices/system/cpu/intel_pstate/no_turbo";
@@ -352,8 +343,10 @@ fn turbo(on: i8) -> Result<(), MainE> {
     }
 
     /* change state of turbo boost */
-    let mut fp = File::create(turbopath)?;
-    fp.write_all(on.to_string().as_bytes()).map_err(MainE::Write)?;
+    File::create(turbopath)?
+        .write_all(if on { b"1" } else { b"0" })
+        .map_err(MainE::Write)?;
+
     Ok(())
 }
 
@@ -362,37 +355,40 @@ fn setgovernor(gov: &str) -> Result<(), MainE> {
     let cpus = num_cpus::get();
 
     for i in 0..cpus {
-        let mut fp = File::create(
-            format!("/sys/devices/system/cpu/cpu{}/cpufreq/scaling_governor", i)
-            )?;
-        fp.write_all(gov.as_bytes()).map_err(MainE::Write)?;
-	}
+        File::create(
+            "/sys/devices/system/cpu/cpu".to_owned() + &i.to_string() + "/cpufreq/scaling_governor"
+            )?
+            .write_all(gov.as_bytes())
+            .map_err(MainE::Write)?;
+    }
+
     Ok(())
 }
 
 /// Get the load average from the file rather than the libc call.
 fn avgload() -> Result<f64, MainE> {
-        let mut firstline = String::new();
-        let mut buffer = std::io::BufReader::new(
-                    File::open("/proc/loadavg")?
-                    );
-        buffer.read_line(&mut firstline).map_err(MainE::Read)?;
-        let mut s = firstline.split_ascii_whitespace();
-        let min1  = match s.next() {
-            Some(s) => s,
-            None => return Err(MainE::Proc("could not find".to_string())),
-        };
-        let min1 = match min1.parse::<f64>() {
-            Ok(o) => o,
-            Err(e) => return Err(MainE::Proc(
-                    format!("expecting a f64: {e}")
-                    )),
-        };
-        // let min5  = s.next().unwrap().parse::<f64>().unwrap();
-        // let min15 = s.next().unwrap().parse::<f64>().unwrap();
+    let mut firstline = String::new();
+    std::io::BufReader::new(File::open("/proc/loadavg")?)
+        .read_line(&mut firstline)
+        .map_err(MainE::Read)?;
+    let mut s = firstline.split_ascii_whitespace();
 
-        //[ min1, min5, min15 ]
-        Ok(min1)
+    let min1  = match s.next() {
+        Some(s) => s,
+        None => return Err(MainE::Proc("could not find".to_string())),
+    };
+
+    let min1: f64 = match min1.parse() {
+        Ok(o) => o,
+        Err(e) => return Err(MainE::Proc(
+                format!("expecting a f64: {e}")
+        )),
+    };
+    // let min5  = s.next().unwrap().parse::<f64>().unwrap();
+    // let min15 = s.next().unwrap().parse::<f64>().unwrap();
+
+    //[ min1, min5, min15 ]
+    Ok(min1)
 }
 
 /// Verifies if the str slice provided is actually valid.
