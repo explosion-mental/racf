@@ -122,9 +122,9 @@ dependencies = [
 
 [[package]]
 name = "getsys"
-version = "1.0.1"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4421f2af5e448fa7d79e3652480b96468e400c6e67e832dc0a1c3d4fb02ec698"
+checksum = "1fc72fb9754b0f4152936da7721875dd5f0c357c2ff7aeffc31ea82aee1c79fd"
 dependencies = [
  "glob",
 ]

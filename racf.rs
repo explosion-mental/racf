@@ -8,7 +8,7 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use clap::Parser;
-use getsys::{Cpu, PerCpu};
+use getsys::{Cpu, PerCpu, Cpu::TurboState};
 use serde::Deserialize;
 use thiserror::Error;
 use owo_colors::{OwoColorize, AnsiColors};
@@ -289,13 +289,16 @@ fn info() -> Result<(), MainE> {
     let vendor = b.vendor().unwrap_or("Could not get battery vendor.");
     let model = b.model().unwrap_or("Could not get battery model.");
 
-    let mut turbocol = AnsiColors::Green;
-    let turbo = if Cpu::turbo() {
-        "enabled".color(turbocol)
-    } else {
-        turbocol = AnsiColors::Red;
-        "disabled".color(turbocol)
+    let mut turbocol = AnsiColors::Red;
+    let turbo = match Cpu::try_turbo() {
+        TurboState::On => {
+            turbocol = AnsiColors::Green;
+            "enabled"
+        },
+        TurboState::Off => "disabled",
+        TurboState::NotSupported => "Not Supported",
     };
+    let turbo = turbo.color(turbocol);
 
     let mut statecol = AnsiColors::Green;
     let state = if b.state() == battery::State::Charging {
