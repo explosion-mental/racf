@@ -2,6 +2,8 @@ use crate::Config;
 ///! some tests to keep an eye on `racf` functionality over time
 
 // TODO macro for a sample config file
+// TODO even tho it's a binary, take a more modular approach, like using lib.rs. That way, here
+// it's simple as importing that module instead of main()
 
 /// Checks the [config.toml](/config.toml) of the repo
 #[test]

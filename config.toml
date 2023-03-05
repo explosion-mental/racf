@@ -20,13 +20,17 @@ interval = 30
 
 # Usual avaliable governors:
 # 	performance - powersave - userspace - ondemand - conservative - schedutil
-# Note: use -l/--list to check for avaliable values in your system
+# use -l/--list to check for avaliable values in your system
 #
 # NOTE FOR INTEL USERS: (modern) intel CPUs have a pstate, which is preferable
 # over the cpufreq. As a suggestion, these 'intel specific' governors are:
 # 	balance_performance - balance_power
 # Check if the path /sys/devices/system/cpu/intel_pstate/hwp_dynamic_boost exist
 governor = "powersave"
+
+# OPTIONAL: You can set a frequency, but setting this requires the governor to be 'userspace'.
+# (use `-l` for possible values)
+#frequency = 2000000
 
 [ac]
 

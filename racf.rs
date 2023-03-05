@@ -51,6 +51,10 @@ enum MainE {
     #[error("Config file: governor '{0}' is invalid, use -l or --list to check avaliable governors.")]
     WrongGov(String),
 
+    /// Not a valid frequency, given your /sys fs
+    #[error("Config file: frequency '{0}' is invalid, use -l or --list to check avaliable frequencies.")]
+    WrongFreq(u32),
+
     /// Already running
     #[error("Stopped. racf is already running at {0}.")]
     Running(u32),
@@ -66,6 +70,10 @@ enum MainE {
     /// methods from `procesees()` failed: `Result<Process, ProcessError>`
     #[error("Error: Could not get pid/name of the processes list:{SP}{0}")]
     ProcErr(#[from] psutil::process::ProcessError),
+
+    /// caused when you use `frequency` parameter in your `config.toml` but the governor is not userspace
+    #[error("Config File: In order to use a `frequency` the governor requires to be 'userspace'.")]
+    NoUserspace,
 }
 
 // XXX are devices without a battery (desktop) valid systems to use this?
@@ -125,6 +133,8 @@ struct Profile {
     /// governor to use, avaliable ones with -l
     //TODO maybe do the same thing as with TurboKind, since there are only so many governors
     governor: String,
+    /// frequency to use, only avaliable on `userspace`
+    frequency: Option<u32>,
 }
 
 impl Config {
@@ -191,6 +201,9 @@ fn run(conf: &Config, cpuperc: f64, b: &battery::Battery, cpus: usize) -> Result
     let conf = if b.state() == battery::State::Charging { &conf.ac } else { &conf.battery };
 
     setgovernor(&conf.governor)?;
+    if let Some(s) = conf.frequency {
+        setfrequency(s)?;
+    };
     if conf.turbo == TurboKind::Never {
         turbo(false)?;
     }
@@ -204,9 +217,16 @@ fn run(conf: &Config, cpuperc: f64, b: &battery::Battery, cpus: usize) -> Result
 
 /// Checks if the parameters for `Profile` are correct
 fn validate_conf(c: &Profile) -> Result<(), MainE> {
+    //XXX restrict other parameters as well?
     let gov = c.governor.to_ascii_lowercase();
     check_govs(&gov)?;
-    //XXX restrict other parameters as well?
+
+    if let Some(s) = c.frequency {
+        if gov != "userspace" {
+            return Err(MainE::NoUserspace);
+        }
+        check_freq(s)?;
+    }
 
     Ok(())
 }
@@ -394,6 +414,20 @@ fn avgload() -> Result<f64, MainE> {
     Ok(min1)
 }
 
+fn setfrequency(freq: u32) -> Result<(), MainE> {
+    let cpus = num_cpus::get();
+
+    for i in 0..cpus {
+        File::create(
+            "/sys/devices/system/cpu/cpu".to_owned() + &i.to_string() + "/cpufreq/scaling_setspeed"
+            )?
+            .write_all(freq.to_string().as_bytes())
+            .map_err(MainE::Write)?;
+    }
+
+    Ok(())
+}
+
 /// Verifies if the str slice provided is actually valid.
 /// In the case it's invalid, the program should report it and exit,
 /// given that /sys will reject any of those with OS 22 error "invalid argument".
@@ -407,6 +441,19 @@ fn check_govs(gov: &str) -> Result<(), MainE> {
         Ok(())
     } else {
         Err(MainE::WrongGov(gov.to_string()))
+    }
+}
+
+fn check_freq(freq: u32) -> Result<(), MainE> {
+    let found =
+        get_freq()?
+            .split_ascii_whitespace()
+            .any(|x| x == freq.to_string());
+
+    if found {
+        Ok(())
+    } else {
+        Err(MainE::WrongFreq(freq))
     }
 }
 
