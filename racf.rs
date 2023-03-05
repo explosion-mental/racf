@@ -289,23 +289,16 @@ fn info() -> Result<(), MainE> {
     let vendor = b.vendor().unwrap_or("Could not get battery vendor.");
     let model = b.model().unwrap_or("Could not get battery model.");
 
-    let mut turbocol = AnsiColors::Red;
-    let turbo = match Cpu::try_turbo() {
-        TurboState::On => {
-            turbocol = AnsiColors::Green;
-            "enabled"
-        },
-        TurboState::Off => "disabled",
-        TurboState::NotSupported => "Not Supported",
+    let (turbo, turbocol) = match Cpu::try_turbo() {
+        TurboState::On => ("enabled", AnsiColors::Green),
+        TurboState::Off => ("disabled", AnsiColors::Red),
+        TurboState::NotSupported => ("Not Supported", AnsiColors::Yellow),
     };
-    let turbo = turbo.color(turbocol);
 
-    let mut statecol = AnsiColors::Green;
-    let state = if b.state() == battery::State::Charging {
-        "Charging".color(statecol)
+    let statecol = if b.state() == battery::State::Charging {
+        AnsiColors::Green
     } else {
-        statecol = AnsiColors::Red;
-        "Disconected".color(statecol)
+        AnsiColors::Red
     };
 
     println!(
@@ -317,9 +310,9 @@ Average temperature: {} °C
 Average cpu percentage: {:.2}%
 {}\t{}\t{}\t{} {}",
     model.bold().blue(),
-    state.bold(),
+    b.state().color(statecol).bold(),
     vendor.italic(),
-    turbo.bold(),
+    turbo.color(turbocol).bold(),
     get_govs()?.trim(),
     "userspace".italic(),
     get_freq()?.trim(),
