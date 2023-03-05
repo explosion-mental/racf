@@ -383,7 +383,7 @@ fn setgovernor(gov: &str) -> Result<(), MainE> {
 
     for i in 0..cpus {
         File::create(
-            "/sys/devices/system/cpu/cpu".to_owned() + &i.to_string() + "/cpufreq/scaling_governor"
+            format!("/sys/devices/system/cpu/cpu{i}/cpufreq/scaling_governor")
             )?
             .write_all(gov.as_bytes())
             .map_err(MainE::Write)?;
@@ -423,7 +423,7 @@ fn setfrequency(freq: u32) -> Result<(), MainE> {
 
     for i in 0..cpus {
         File::create(
-            "/sys/devices/system/cpu/cpu".to_owned() + &i.to_string() + "/cpufreq/scaling_setspeed"
+            format!("/sys/devices/system/cpu/cpu{i}/cpufreq/scaling_setspeed")
             )?
             .write_all(freq.to_string().as_bytes())
             .map_err(MainE::Write)?;
