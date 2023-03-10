@@ -311,6 +311,22 @@ fn info() -> Result<(), MainE> {
         AnsiColors::Red
     };
 
+    // vectors of the percpu info
+    let f = PerCpu::freq();
+    let g = PerCpu::governor();
+    let d = PerCpu::driver();
+
+    // wrap vectors into one `.zip`ped
+    let vals = g.iter().zip(d.iter()).zip(f.iter()).enumerate();
+
+    //XXX is `String::with_capacity(vals.len())` and `push_str()` more performant?
+    // collect formated strings
+    let percpu_stats = vals.map(
+        |(i, ((gov, driver), freq))|
+            format!("CPU{}\t{}\t{}\t{}\n", i, gov, driver, freq)
+        ).collect::<String>();
+
+
     println!(
 "{} battery is {} ({})
 Turbo boost is {}
@@ -318,7 +334,8 @@ Avaliable governors:{SP}{}
 Avaliable {} frequencies:{SP}{}
 Average temperature: {} °C
 Average cpu percentage: {:.2}%
-{}\t{}\t{}\t{} {}",
+{}\t{}\t{}\t{} {}
+{}",
     model.bold().blue(),
     b.state().color(statecol).bold(),
     vendor.italic(),
@@ -333,26 +350,9 @@ Average cpu percentage: {:.2}%
     "Scaling Driver".bold().underline().yellow(),
     "Frequency".bold().underline().yellow(),
     "(kHz)".italic().yellow(),
+    percpu_stats.trim(),
     );
 
-    /* get vector of values */
-    let f = PerCpu::freq();
-    let g = PerCpu::governor();
-    let d = PerCpu::driver();
-
-    let sz = f.len();
-
-    let mut f = f.iter();
-    let mut g = g.iter();
-    let mut d = d.iter();
-
-    for i in 0..sz {
-        println!("CPU{}\t{}\t{}\t{}", i,
-                 g.next().unwrap_or(&"err".to_owned()),
-                 d.next().unwrap_or(&"err".to_owned()),
-                 f.next().unwrap_or(&"err".to_owned()),
-                 );
-    }
     Ok(())
 }
 
