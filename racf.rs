@@ -1,4 +1,5 @@
 //! # `racf`
+//! TODO thermal policies
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
@@ -8,7 +9,8 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use clap::Parser;
-use getsys::{Cpu, PerCpu, Cpu::TurboState};
+use getsys::Cpu::{perc, try_turbo, temp, TurboState};
+use getsys::PerCpu;
 use serde::Deserialize;
 use thiserror::Error;
 use owo_colors::{OwoColorize, AnsiColors};
@@ -111,6 +113,12 @@ struct Config {
     ac: Profile,
 }
 
+/// Little enum to choose between governor and frequency stats
+enum StatKind {
+    Governor,
+    Freq,
+}
+
 /// Possible values of turbo. When `config.toml` turbo parameters don't match these, `toml` will
 /// generate an error with the line and the expected values.
 /// (With these there is no need to `.validate()` to match these values)
@@ -184,13 +192,13 @@ fn try_main() -> Result<(), MainE> {
 
     let conf = parse_conf()?;
     let cpus = num_cpus::get();
-    let mut cpuperc = Cpu::perc(Duration::from_millis(200)); //tmp fast value
+    let mut cpuperc = perc(Duration::from_millis(200)); //tmp fast value
     let man = battery::Manager::new()?;
     let bat = get_bat(&man)?;
 
     loop {
         run(&conf, cpuperc, &bat, cpus)?;
-        cpuperc = Cpu::perc(Duration::from_secs(
+        cpuperc = perc(Duration::from_secs(
                 if bat.state() == battery::State::Charging { conf.ac.interval.into() } else { conf.battery.interval.into() }
                 )); //sleep
     }
@@ -211,7 +219,7 @@ fn run(conf: &Config, cpuperc: f64, b: &battery::Battery, cpus: usize) -> Result
     if conf.turbo == TurboKind::Never {
         turbo(false)?;
     }
-    else if conf.turbo == TurboKind::Always || avgload()? >= threshold || cpuperc >= conf.mincpu || Cpu::temp() >= conf.mintemp
+    else if conf.turbo == TurboKind::Always || avgload()? >= threshold || cpuperc >= conf.mincpu || temp() >= conf.mintemp
     {
         turbo(true)?;
     }
@@ -281,7 +289,7 @@ fn cli_flags() -> Result<(), MainE> {
         let f = parse_conf()?;
         let man = battery::Manager::new()?;
         let bat = get_bat(&man)?;
-        run(&f, Cpu::perc(Duration::from_millis(200)), &bat, num_cpus::get())?;
+        run(&f, perc(Duration::from_millis(200)), &bat, num_cpus::get())?;
         exit(0);
     } else if let Some(gov) = a.governor.as_deref() {
         check_govs(gov)?;
@@ -299,7 +307,7 @@ fn info() -> Result<(), MainE> {
     let vendor = b.vendor().unwrap_or("Could not get battery vendor.");
     let model = b.model().unwrap_or("Could not get battery model.");
 
-    let (turbo, turbocol) = match Cpu::try_turbo() {
+    let (turbo, turbocol) = match try_turbo() {
         TurboState::On => ("enabled", AnsiColors::Green),
         TurboState::Off => ("disabled", AnsiColors::Red),
         TurboState::NotSupported => ("Not Supported", AnsiColors::Yellow),
@@ -340,11 +348,11 @@ Average cpu percentage: {:.2}%
     b.state().color(statecol).bold(),
     vendor.italic(),
     turbo.color(turbocol).bold(),
-    get_govs()?.trim(),
+    get_stat(StatKind::Governor)?.trim(),
     "userspace".italic(),
-    get_freq()?.trim(),
-    Cpu::temp(),
-    Cpu::perc(Duration::from_millis(100)),
+    get_stat(StatKind::Freq)?.trim(),
+    temp(),
+    perc(Duration::from_millis(100)),
     "Core".bold().underline().yellow(),
     "Governor".bold().underline().yellow(),
     "Scaling Driver".bold().underline().yellow(),
@@ -443,7 +451,7 @@ fn setfrequency(freq: u32) -> Result<(), MainE> {
 /// given that /sys will reject any of those with OS 22 error "invalid argument".
 fn check_govs(gov: &str) -> Result<(), MainE> {
     let found =
-        get_govs()?
+        get_stat(StatKind::Governor)?
             .split_ascii_whitespace()
             .any(|x| x == gov);
 
@@ -457,7 +465,7 @@ fn check_govs(gov: &str) -> Result<(), MainE> {
 /// Checks for the frequency provided is present in /sys
 fn check_freq(freq: u32) -> Result<(), MainE> {
     let found =
-        get_freq()?
+        get_stat(StatKind::Freq)?
             .split_ascii_whitespace()
             .any(|x| x == freq.to_string());
 
@@ -469,16 +477,14 @@ fn check_freq(freq: u32) -> Result<(), MainE> {
 }
 
 //TODO evaluate to use either `../cpuX/` or `../policyX/`
-
-/// Returns avaliable governors for the system in a `String`.
-fn get_govs() -> Result<String, MainE> {
-    let p = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
-    std::fs::read_to_string(p).map_err(MainE::Read)
-}
-
-/// Returns avaliable frequencies for the system in a `String`, These can be used **only** in the
-/// `userspace` governor.
-fn get_freq() -> Result<String, MainE> {
-    let p = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies";
+/// Gets either `Governor` or `Freq` stats
+/// * `Freq`: Returns avaliable frequencies for the system in a `String`, These can be used **only** in the
+///           `userspace` governor.
+/// * `Governor`: Returns avaliable governors for the system in a `String`.
+fn get_stat(stat: StatKind) -> Result<String, MainE> {
+    let p = match stat {
+        StatKind::Governor => "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies",
+        StatKind::Freq => "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies",
+    };
     std::fs::read_to_string(p).map_err(MainE::Read)
 }
