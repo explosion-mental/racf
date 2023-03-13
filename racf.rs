@@ -307,10 +307,10 @@ fn info() -> Result<(), MainE> {
     let vendor = b.vendor().unwrap_or("Could not get battery vendor.");
     let model = b.model().unwrap_or("Could not get battery model.");
 
-    let (turbo, turbocol) = match try_turbo() {
-        TurboState::On => ("enabled", AnsiColors::Green),
-        TurboState::Off => ("disabled", AnsiColors::Red),
-        TurboState::NotSupported => ("Not Supported", AnsiColors::Yellow),
+    let turbocol = match try_turbo() {
+        TurboState::On => AnsiColors::Green,
+        TurboState::Off => AnsiColors::Red,
+        TurboState::NotSupported => AnsiColors::Yellow,
     };
 
     let statecol = if b.state() == battery::State::Charging {
@@ -347,7 +347,7 @@ Average cpu percentage: {:.2}%
     model.bold().blue(),
     b.state().color(statecol).bold(),
     vendor.italic(),
-    turbo.color(turbocol).bold(),
+    try_turbo().color(turbocol).bold(),
     get_stat(StatKind::Governor)?.trim(),
     "userspace".italic(),
     get_stat(StatKind::Freq)?.trim(),
@@ -367,21 +367,20 @@ Average cpu percentage: {:.2}%
 /// Sets the turbo boost state for all cpus.
 fn turbo(on: bool) -> Result<(), MainE> {
     // TODO refactor `intel_pstate` detection and list it in info()
-    let turbopath;
     let intelpstate = "/sys/devices/system/cpu/intel_pstate/no_turbo";
     let cpufreq = "/sys/devices/system/cpu/cpufreq/boost";
 
-    if Path::new(intelpstate).exists() {
-        turbopath = intelpstate;
+    let turbopath = if Path::new(intelpstate).exists() {
+        intelpstate
     } else if Path::new(cpufreq).exists() {
-        turbopath = cpufreq;
+        cpufreq
     } else { /* turbo boost is not supported */
         //TODO breaking change would be a crash, let's just report an error for now.
         //FIXME wait for getsys v2
         //return Err(MainE::NoTurbo);
         eprintln!("Warning: Turbo boost is not supported");
         return Ok(());
-    }
+    };
 
     /* change state of turbo boost */
     File::create(turbopath)?
@@ -483,7 +482,7 @@ fn check_freq(freq: u32) -> Result<(), MainE> {
 /// * `Governor`: Returns avaliable governors for the system in a `String`.
 fn get_stat(stat: StatKind) -> Result<String, MainE> {
     let p = match stat {
-        StatKind::Governor => "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies",
+        StatKind::Governor => "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors",
         StatKind::Freq => "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies",
     };
     std::fs::read_to_string(p).map_err(MainE::Read)
