@@ -37,11 +37,11 @@ enum MainE {
     #[error("Fetching from /proc/avgload failed:{SP}{0}")]
     Proc(String),
 
-    #[error("Error while reading a file:{SP}{0}")]
-    Read(#[source] io::Error),
+    #[error("Error while reading a file '{1}':{SP}{0}")]
+    Read(#[source] io::Error, String),
 
-    #[error("Error while writting a file:{SP}{0}")]
-    Write(#[source] io::Error),
+    #[error("Error while writting a file '{1}':{SP}{0}")]
+    Write(#[source] io::Error, String),
 
     /// Failed to deserialize the toml config file
     #[error("Config file: Failed to deserialize, make sure toml types are correct:{SP}{0}")]
@@ -269,7 +269,8 @@ fn parse_conf() -> Result<Config, MainE> {
         return Err(MainE::MissingConfig);
     };
 
-    let contents = std::fs::read_to_string(p).map_err(MainE::Read)?;
+    let contents = std::fs::read_to_string(p)
+       .map_err(|e| MainE::Read(e, p.to_string()))?;
     let file: Config = toml::from_str(&contents)?;
     file.validate()?;
     Ok(file)
@@ -385,7 +386,7 @@ fn turbo(on: bool) -> Result<(), MainE> {
     /* change state of turbo boost */
     File::create(turbopath)?
         .write_all(if on { b"1" } else { b"0" })
-        .map_err(MainE::Write)?;
+        .map_err(|e| MainE::Write(e, turbopath.to_owned()))?;
 
     Ok(())
 }
@@ -395,11 +396,10 @@ fn setgovernor(gov: &str) -> Result<(), MainE> {
     let cpus = num_cpus::get();
 
     for i in 0..cpus {
-        File::create(
-            format!("/sys/devices/system/cpu/cpu{i}/cpufreq/scaling_governor")
-            )?
+        let path = format!("/sys/devices/system/cpu/cpu{i}/cpufreq/scaling_governor");
+        File::create(&path)?
             .write_all(gov.as_bytes())
-            .map_err(MainE::Write)?;
+            .map_err(|e| MainE::Write(e, path.to_string()))?;
     }
 
     Ok(())
@@ -408,9 +408,10 @@ fn setgovernor(gov: &str) -> Result<(), MainE> {
 /// Get the load average from the file rather than the libc call.
 fn avgload() -> Result<f64, MainE> {
     let mut firstline = String::new();
-    std::io::BufReader::new(File::open("/proc/loadavg")?)
+    let path = "/proc/loadavg";
+    std::io::BufReader::new(File::open(path)?)
         .read_line(&mut firstline)
-        .map_err(MainE::Read)?;
+        .map_err(|e| MainE::Read(e, path.to_string()))?;
     let mut s = firstline.split_ascii_whitespace();
 
     let Some(min1) = s.next() else {
@@ -435,11 +436,10 @@ fn setfrequency(freq: u32) -> Result<(), MainE> {
     let cpus = num_cpus::get();
 
     for i in 0..cpus {
-        File::create(
-            format!("/sys/devices/system/cpu/cpu{i}/cpufreq/scaling_setspeed")
-            )?
+        let path = format!("/sys/devices/system/cpu/cpu{i}/cpufreq/scaling_setspeed");
+        File::create(&path)?
             .write_all(freq.to_string().as_bytes())
-            .map_err(MainE::Write)?;
+            .map_err(|e| MainE::Write(e, path.to_owned()))?;
     }
 
     Ok(())
@@ -485,5 +485,5 @@ fn get_stat(stat: StatKind) -> Result<String, MainE> {
         StatKind::Governor => "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors",
         StatKind::Freq => "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies",
     };
-    std::fs::read_to_string(p).map_err(MainE::Read)
+    std::fs::read_to_string(p).map_err(|e| MainE::Write(e, p.to_string()))
 }
