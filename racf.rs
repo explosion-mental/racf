@@ -157,13 +157,18 @@ impl Config {
             &self.battery
         }
     }
+    /// Validates the configuration file
+    pub fn validate(&self) -> Result<(), MainE> {
+        self.battery.check()?;
+        self.ac.check()?;
+        Ok(())
+    }
 }
 
 impl Profile {
-    /// Validates the configuration file
     /// Checks if the parameters for `Profile` are correct
     //XXX restrict other parameters as well?
-    pub fn validate(&self) -> Result<(), MainE> {
+    pub fn check(&self) -> Result<(), MainE> {
         let gov = self.governor.to_ascii_lowercase();
         check_govs(&gov)?;
 
@@ -275,8 +280,7 @@ fn parse_conf() -> Result<Config, MainE> {
     let contents = std::fs::read_to_string(p)
        .map_err(|e| MainE::Read(e, p.to_string()))?;
     let file: Config = toml::from_str(&contents)?;
-    file.battery.validate()?;
-    file.ac.validate()?;
+    file.validate()?;
     Ok(file)
 }
 
