@@ -68,3 +68,8 @@ You can copy the file like so:
 cp -f racf.toml /etc/racf.toml
 ```
 or simply copy and paste it.
+
+TODO
+----
+- Implement `user space` for thermal controls (just like thermald) [seems a bit complicated]
+- Allow to define profiles with an `Option`al battery percentage value
