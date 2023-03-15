@@ -227,6 +227,8 @@ fn main() -> ExitCode {
 fn try_main() -> Result<(), MainE> {
     cli_flags()?; // all cli flags exit()
 
+    // TODO create/delete a lock file instead, given that you can be running `racf -l` while racf is running.
+    // XXX the above requires write/read permissions for /var, which is the usual place for this kind of files
     {
         let ppid = std::process::id();
         let processes = processes()?;
