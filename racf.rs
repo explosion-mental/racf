@@ -152,9 +152,9 @@ struct Profile {
 impl Config {
     pub fn current(&self, bat: &battery::Battery) -> &Profile {
         if bat.state() == battery::State::Charging {
-            Ok(&self.ac)
+            &self.ac
         } else {
-            Ok(&self.battery)
+            &self.battery
         }
     }
 }
