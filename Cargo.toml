@@ -1,6 +1,6 @@
 [package]
 name = "racf"
-version = "1.6.2"
+version = "1.6.3"
 edition = "2021"
 license = "GPL-3.0"
 authors = [ "explosion-mental" ]
