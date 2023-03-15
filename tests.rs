@@ -5,22 +5,22 @@ use crate::Config;
 // TODO even tho it's a binary, take a more modular approach, like using lib.rs. That way, here
 // it's simple as importing that module instead of main()
 
-/// Checks the [config.toml](/config.toml) of the repo
+/// Checks the [racf.toml](/racf.toml) of the repo
 #[test]
 fn check_config() {
-    let contents = std::fs::read_to_string("./config.toml").expect("config.toml is always present in the repo");
+    let contents = std::fs::read_to_string("./racf.toml").expect("racf.toml is always present in the repo");
     let f: Result<Config, toml::de::Error> = toml::from_str(&contents);
 
     if f.is_err() { // toml error
         dbg!(&f);
-        panic!("\nThere is an issue with deserializing with TOML `config.toml`:\n-->'{:?}'\n\n", f);
+        panic!("\nThere is an issue with deserializing with TOML `racf.toml`:\n-->'{:?}'\n\n", f);
     }
 
     let f = f.expect("statement above checks for err").validate();
 
     if f.is_err() { // error with one parameter (turbo or governor)
         dbg!(&f);
-        panic!("\nThere is an issue with validating `config.toml`:\n-->'{:?}'\n\n", f);
+        panic!("\nThere is an issue with validating `racf.toml`:\n-->'{:?}'\n\n", f);
     }
 }
 
