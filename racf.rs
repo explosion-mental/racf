@@ -1,8 +1,9 @@
 //! # `racf`
 //! TODO thermal policies
 use std::fs::File;
+use std::fs::read_to_string;
 use std::io;
-use std::io::prelude::*;
+use std::io::Write;
 use std::path::Path;
 use std::process::exit;
 use std::process::ExitCode;
@@ -277,7 +278,7 @@ fn parse_conf() -> Result<Config, MainE> {
         return Err(MainE::MissingConfig);
     };
 
-    let contents = std::fs::read_to_string(p)
+    let contents = read_to_string(p)
        .map_err(|e| MainE::Read(e, p.to_string()))?;
     let file: Config = toml::from_str(&contents)?;
     file.validate()?;
@@ -400,28 +401,22 @@ fn turbo(on: bool) -> Result<(), MainE> {
 }
 
 /// Get the load average from the file rather than the libc call.
+/// cat /proc/loadavg: 1.17 0.96 0.94 1/1069 8782
+///                    ^    ^    ^
+///                   /     5    |
+///        1 min ----+     mins  +----- 15 mins
 fn avgload() -> Result<f64, MainE> {
-    let mut firstline = String::new();
-    let path = "/proc/loadavg";
-    std::io::BufReader::new(File::open(path)?)
-        .read_line(&mut firstline)
-        .map_err(|e| MainE::Read(e, path.to_string()))?;
-    let mut s = firstline.split_ascii_whitespace();
+    let p = "/proc/loadavg";
+    let loadavg = read_to_string(p).map_err(|e| MainE::Write(e, p.to_string()))?;
+    let mut s = loadavg.split_ascii_whitespace();
 
     let Some(min1) = s.next() else {
         return Err(MainE::Proc("could not find".to_owned()));
     };
 
-    let min1: f64 = match min1.parse() {
-        Ok(o) => o,
-        Err(e) => return Err(MainE::Proc(
-                format!("expecting a f64: {e}")
-        )),
-    };
-    // let min5  = s.next().unwrap().parse::<f64>().unwrap();
-    // let min15 = s.next().unwrap().parse::<f64>().unwrap();
+    let min1: f64 = min1.parse()
+        .map_err(|e| MainE::Proc(format!("Error when parsing a string, expected f64:{SP}{e}")))?;
 
-    //[ min1, min5, min15 ]
     Ok(min1)
 }
 
@@ -465,7 +460,7 @@ fn get_stat(stat: StatKind) -> Result<String, MainE> {
         StatKind::Governor => "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors",
         StatKind::Freq => "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies",
     };
-    std::fs::read_to_string(p).map_err(|e| MainE::Write(e, p.to_string()))
+    read_to_string(p).map_err(|e| MainE::Write(e, p.to_string()))
 }
 
 /// Sets either `Governor` or `Freq` stats
