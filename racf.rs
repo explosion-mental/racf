@@ -212,9 +212,9 @@ fn run(conf: &Config, cpuperc: f64, b: &battery::Battery, cpus: usize) -> Result
     let threshold: f64 = ((75 * cpus) / 100) as f64;
     let conf = if b.state() == battery::State::Charging { &conf.ac } else { &conf.battery };
 
-    setgovernor(&conf.governor)?;
+    set_stat(StatKind::Governor, &conf.governor)?;
     if let Some(s) = conf.frequency {
-        setfrequency(s)?;
+        set_stat(StatKind::Freq, &s.to_string())?;
     };
     if conf.turbo == TurboKind::Never {
         turbo(false)?;
@@ -294,7 +294,7 @@ fn cli_flags() -> Result<(), MainE> {
         exit(0);
     } else if let Some(gov) = a.governor.as_deref() {
         check_govs(gov)?;
-        setgovernor(gov)?;
+        set_stat(StatKind::Governor, gov)?;
         exit(0);
     }
 
@@ -391,20 +391,6 @@ fn turbo(on: bool) -> Result<(), MainE> {
     Ok(())
 }
 
-/// Sets the governor for all cpus.
-fn setgovernor(gov: &str) -> Result<(), MainE> {
-    let cpus = num_cpus::get();
-
-    for i in 0..cpus {
-        let path = format!("/sys/devices/system/cpu/cpu{i}/cpufreq/scaling_governor");
-        File::create(&path)?
-            .write_all(gov.as_bytes())
-            .map_err(|e| MainE::Write(e, path.to_string()))?;
-    }
-
-    Ok(())
-}
-
 /// Get the load average from the file rather than the libc call.
 fn avgload() -> Result<f64, MainE> {
     let mut firstline = String::new();
@@ -429,20 +415,6 @@ fn avgload() -> Result<f64, MainE> {
 
     //[ min1, min5, min15 ]
     Ok(min1)
-}
-
-/// write to `scaling_setspeed` of every cpu
-fn setfrequency(freq: u32) -> Result<(), MainE> {
-    let cpus = num_cpus::get();
-
-    for i in 0..cpus {
-        let path = format!("/sys/devices/system/cpu/cpu{i}/cpufreq/scaling_setspeed");
-        File::create(&path)?
-            .write_all(freq.to_string().as_bytes())
-            .map_err(|e| MainE::Write(e, path.to_owned()))?;
-    }
-
-    Ok(())
 }
 
 /// Verifies if the str slice provided is actually valid.
@@ -475,15 +447,39 @@ fn check_freq(freq: u32) -> Result<(), MainE> {
     }
 }
 
+
+//XXX maybe add these as methors for the struct like `config.governor.set()`, which under the hood
+//just calls these general funcs
+
 //TODO evaluate to use either `../cpuX/` or `../policyX/`
 /// Gets either `Governor` or `Freq` stats
-/// * `Freq`: Returns avaliable frequencies for the system in a `String`, These can be used **only** in the
+/// * `Freq` => Returns avaliable frequencies for the system in a `String`, These can be used **only** in the
 ///           `userspace` governor.
-/// * `Governor`: Returns avaliable governors for the system in a `String`.
+/// * `Governor` => Returns avaliable governors for the system in a `String`.
 fn get_stat(stat: StatKind) -> Result<String, MainE> {
     let p = match stat {
         StatKind::Governor => "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors",
         StatKind::Freq => "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies",
     };
     std::fs::read_to_string(p).map_err(|e| MainE::Write(e, p.to_string()))
+}
+
+/// Sets either `Governor` or `Freq` stats
+/// * `Governor` => Sets the governor for all cpus.
+/// * `Freq` => write to `scaling_setspeed` of every cpu
+fn set_stat(stat: StatKind, value: &str) -> Result<(), MainE> {
+    let cpus = num_cpus::get();
+    let suf = match stat {
+        StatKind::Governor => "scaling_governor",
+        StatKind::Freq => "scaling_setspeed",
+    };
+
+    for i in 0..cpus {
+        let path = format!("/sys/devices/system/cpu/cpu{i}/cpufreq/{suf}");
+        File::create(&path)?
+            .write_all(value.as_bytes())
+            .map_err(|e| MainE::Write(e, path.to_owned()))?;
+    }
+
+    Ok(())
 }
