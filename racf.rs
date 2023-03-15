@@ -149,6 +149,16 @@ struct Profile {
     frequency: Option<u32>,
 }
 
+impl Config {
+    pub fn current(&self, bat: &battery::Battery) -> &Profile {
+        if bat.state() == battery::State::Charging {
+            Ok(&self.ac)
+        } else {
+            Ok(&self.battery)
+        }
+    }
+}
+
 impl Profile {
     /// Validates the configuration file
     /// Checks if the parameters for `Profile` are correct
@@ -171,7 +181,7 @@ impl Profile {
     /// The idea is to use turbo boost when the below parameters
     /// (cpu percentage, temperature and threshold) are met.
     // TODO should threshold be configurable?
-    pub fn set(&self, cpuperc: f64, cpus: usize) -> Result<(), MainE> {
+    pub fn run(&self, cpuperc: f64, cpus: usize) -> Result<(), MainE> {
         let threshold: f64 = ((75 * cpus) / 100) as f64;
 
         set_stat(StatKind::Governor, &self.governor)?;
@@ -230,17 +240,10 @@ fn try_main() -> Result<(), MainE> {
     let bat = get_bat(&man)?;
 
     loop {
-        run(&conf, cpuperc, &bat, cpus)?;
-        cpuperc = perc(Duration::from_secs(
-                if bat.state() == battery::State::Charging { conf.ac.interval.into() } else { conf.battery.interval.into() }
-                )); //sleep
+        let current_profile = conf.current(&bat);
+        current_profile.run(cpuperc, cpus)?;
+        cpuperc = perc(Duration::from_secs(current_profile.interval.into())); //sleep
     }
-}
-
-fn run(conf: &Config, cpuperc: f64, b: &battery::Battery, cpus: usize) -> Result<(), MainE> {
-    let conf = if b.state() == battery::State::Charging { &conf.ac } else { &conf.battery };
-    conf.set(cpuperc, cpus)?;
-    Ok(())
 }
 
 /// Update battery info and make sure it is not None
@@ -288,10 +291,10 @@ fn cli_flags() -> Result<(), MainE> {
         turbo(t)?;
         exit(0);
     } else if a.run_once {
-        let f = parse_conf()?;
+        let conf = parse_conf()?;
         let man = battery::Manager::new()?;
         let bat = get_bat(&man)?;
-        run(&f, perc(Duration::from_millis(200)), &bat, num_cpus::get())?;
+        conf.current(&bat).run(perc(Duration::from_millis(200)), num_cpus::get())?;
         exit(0);
     } else if let Some(gov) = a.governor.as_deref() {
         check_govs(gov)?;
@@ -447,10 +450,6 @@ fn check_freq(freq: u32) -> Result<(), MainE> {
         Err(MainE::WrongFreq(freq))
     }
 }
-
-
-//XXX maybe add these as methors for the struct like `config.governor.set()`, which under the hood
-//just calls these general funcs
 
 //TODO evaluate to use either `../cpuX/` or `../policyX/`
 /// Gets either `Governor` or `Freq` stats
