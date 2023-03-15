@@ -264,9 +264,9 @@ fn get_bat(man: &battery::Manager) -> Result<battery::Battery, MainE> {
 
 /// toml + serde to get config values into structs
 fn parse_conf() -> Result<Config, MainE> {
-    let p1 = "/etc/racf/config.toml";
-    let p2 = "/etc/racf.toml";
-    let p3 = "/etc/racf/racf.toml";
+    let p1 = "/etc/racf.toml";
+    let p2 = "/etc/racf/racf.toml";
+    let p3 = "/etc/racf/config.toml";
 
     let p = if Path::new(p1).exists() {
         p1
