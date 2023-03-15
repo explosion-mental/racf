@@ -149,11 +149,44 @@ struct Profile {
     frequency: Option<u32>,
 }
 
-impl Config {
+impl Profile {
     /// Validates the configuration file
+    /// Checks if the parameters for `Profile` are correct
+    //XXX restrict other parameters as well?
     pub fn validate(&self) -> Result<(), MainE> {
-        validate_conf(&self.battery)?;
-        validate_conf(&self.ac)?;
+        let gov = self.governor.to_ascii_lowercase();
+        check_govs(&gov)?;
+
+        if let Some(s) = self.frequency {
+            if gov != "userspace" {
+                return Err(MainE::NoUserspace);
+            }
+            check_freq(s)?;
+        }
+
+        Ok(())
+    }
+
+    /// Main logic, changes the configuration to use depending on the charging state.
+    /// The idea is to use turbo boost when the below parameters
+    /// (cpu percentage, temperature and threshold) are met.
+    // TODO should threshold be configurable?
+    pub fn set(&self, cpuperc: f64, cpus: usize) -> Result<(), MainE> {
+        let threshold: f64 = ((75 * cpus) / 100) as f64;
+
+        set_stat(StatKind::Governor, &self.governor)?;
+        if let Some(s) = self.frequency {
+            set_stat(StatKind::Freq, &s.to_string())?;
+        };
+
+        if self.turbo == TurboKind::Never {
+            turbo(false)?;
+        }
+        else if self.turbo == TurboKind::Always || avgload()? >= threshold || cpuperc >= self.mincpu || temp() >= self.mintemp
+        {
+            turbo(true)?;
+        }
+
         Ok(())
     }
 }
@@ -204,42 +237,9 @@ fn try_main() -> Result<(), MainE> {
     }
 }
 
-/// Main logic, changes the configuration to use depending on the charging state.
-/// The idea is to use turbo boost when the below parameters
-/// (cpu percentage, temperature and threshold) are met.
 fn run(conf: &Config, cpuperc: f64, b: &battery::Battery, cpus: usize) -> Result<(), MainE> {
-    // TODO should threshold be configurable?
-    let threshold: f64 = ((75 * cpus) / 100) as f64;
     let conf = if b.state() == battery::State::Charging { &conf.ac } else { &conf.battery };
-
-    set_stat(StatKind::Governor, &conf.governor)?;
-    if let Some(s) = conf.frequency {
-        set_stat(StatKind::Freq, &s.to_string())?;
-    };
-    if conf.turbo == TurboKind::Never {
-        turbo(false)?;
-    }
-    else if conf.turbo == TurboKind::Always || avgload()? >= threshold || cpuperc >= conf.mincpu || temp() >= conf.mintemp
-    {
-        turbo(true)?;
-    }
-
-    Ok(())
-}
-
-/// Checks if the parameters for `Profile` are correct
-fn validate_conf(c: &Profile) -> Result<(), MainE> {
-    //XXX restrict other parameters as well?
-    let gov = c.governor.to_ascii_lowercase();
-    check_govs(&gov)?;
-
-    if let Some(s) = c.frequency {
-        if gov != "userspace" {
-            return Err(MainE::NoUserspace);
-        }
-        check_freq(s)?;
-    }
-
+    conf.set(cpuperc, cpus)?;
     Ok(())
 }
 
@@ -272,7 +272,8 @@ fn parse_conf() -> Result<Config, MainE> {
     let contents = std::fs::read_to_string(p)
        .map_err(|e| MainE::Read(e, p.to_string()))?;
     let file: Config = toml::from_str(&contents)?;
-    file.validate()?;
+    file.battery.validate()?;
+    file.ac.validate()?;
     Ok(file)
 }
 
