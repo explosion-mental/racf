@@ -4,6 +4,7 @@ racf - auto cpu frequencer
 [![license](https://img.shields.io/badge/license-GPL--3.0-lightgreen?style=flat-square)](./LICENSE)
 [![loc](https://img.shields.io/tokei/lines/github/explosion-mental/racf?color=lightgreen&style=flat-square)](./racf.rs)
 [![cratesv](https://img.shields.io/crates/v/racf?style=flat-square&color=red)](https://crates.io/crates/racf)
+[![dependency status](https://deps.rs/repo/codeberg/explosion-mental/racf/status.svg)](https://deps.rs/repo/codeberg/explosion-mental/racf)
 <br>
 
 Simple and configurable tool that dynamically switches turbo boost and the
