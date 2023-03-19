@@ -38,10 +38,16 @@ enum MainE {
     #[error("Fetching from /proc/avgload failed:{SP}{0}")]
     Proc(String),
 
-    #[error("Error while reading a file '{1}':{SP}{0}")]
+    /// `map_err()` when `read_to_string`
+    /// 0: source error
+    /// 1: path of the error file
+    #[error("Error while reading a file {1}:{SP}{0}")]
     Read(#[source] io::Error, String),
 
-    #[error("Error while writting a file '{1}':{SP}{0}")]
+    /// `map_err()` when `.create` and `write_all`
+    /// 0: source error
+    /// 1: path of the error file or an unusual but simple error, see [`set_stat`]
+    #[error("Error while writting a file {1}:{SP}{0}")]
     Write(#[source] io::Error, String),
 
     /// Failed to deserialize the toml config file
@@ -210,13 +216,6 @@ impl Profile {
 fn main() -> ExitCode {
     let Err(e) = try_main() else {
         return ExitCode::SUCCESS;
-    };
-
-    if let MainE::Io(e) = &e {
-        if e.kind() == io::ErrorKind::PermissionDenied {
-            eprintln!("You need read/write permissions in /sys:{SP}{e}");
-            return ExitCode::FAILURE;
-        }
     };
 
     eprintln!("{e}");
@@ -394,8 +393,9 @@ fn turbo(on: bool) -> Result<(), MainE> {
         return Ok(());
     };
 
-    /* change state of turbo boost */
-    File::create(turbopath)?
+    // change state of turbo boost
+    File::create(turbopath)
+        .map_err(|e| MainE::Write(e, turbopath.to_owned()))?
         .write_all(if on { b"1" } else { b"0" })
         .map_err(|e| MainE::Write(e, turbopath.to_owned()))?;
 
@@ -477,7 +477,15 @@ fn set_stat(stat: StatKind, value: &str) -> Result<(), MainE> {
 
     for i in 0..cpus {
         let path = format!("/sys/devices/system/cpu/cpu{i}/cpufreq/{suf}");
-        File::create(&path)?
+        File::create(&path)
+            .map_err(|e| {
+                let msg = if e.kind() == io::ErrorKind::PermissionDenied {
+                    "- you need read/write permissions in /sys"
+                } else {
+                    &path
+                };
+                MainE::Write(e, msg.to_owned())
+            })?
             .write_all(value.as_bytes())
             .map_err(|e| MainE::Write(e, path.to_owned()))?;
     }
