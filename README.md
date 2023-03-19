@@ -1,9 +1,10 @@
 racf - auto cpu frequencer
 ==========================
 [![crates io](https://img.shields.io/crates/v/racf?style=flat-square&color=red)](https://crates.io/crates/racf)
+[![downloads](https://img.shields.io/crates/d/racf?style=flat-square&color=yellow)](https://crates.io/crates/getsys)
 [![license](https://img.shields.io/crates/l/racf?style=flat-square)](https://codeberg.org/explosion-mental/racf/src/branch/main/LICENSE)
-[![loc](https://img.shields.io/tokei/lines/github/explosion-mental/racf?color=lightgreen&style=flat-square)](https://codeberg.org/explosion-mental/getsys/src/branch/main/racf.rs)
 [![dependency status](https://deps.rs/repo/codeberg/explosion-mental/racf/status.svg)](https://deps.rs/repo/codeberg/explosion-mental/racf)
+[![loc](https://img.shields.io/tokei/lines/github/explosion-mental/racf?color=lightgreen&style=flat-square)](https://codeberg.org/explosion-mental/getsys/src/branch/main/racf.rs)
 [![CodeBerg](https://img.shields.io/badge/Hosted_at-Codeberg-%232185D0?style=flat-square&logo=CodeBerg)](https://codeberg.org/explosion-mental/racf)
 <br>
 
