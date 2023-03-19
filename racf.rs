@@ -280,7 +280,7 @@ fn parse_conf() -> Result<Config, MainE> {
     };
 
     let contents = read_to_string(p)
-       .map_err(|e| MainE::Read(e, p.to_string()))?;
+       .map_err(|e| MainE::Read(e, p.to_owned()))?;
     let file: Config = toml::from_str(&contents)?;
     file.validate()?;
     Ok(file)
@@ -409,7 +409,7 @@ fn turbo(on: bool) -> Result<(), MainE> {
 ///        1 min ----+     mins  +----- 15 mins
 fn avgload() -> Result<f64, MainE> {
     let p = "/proc/loadavg";
-    let loadavg = read_to_string(p).map_err(|e| MainE::Write(e, p.to_string()))?;
+    let loadavg = read_to_string(p).map_err(|e| MainE::Write(e, p.to_owned()))?;
     let mut s = loadavg.split_ascii_whitespace();
 
     let Some(min1) = s.next() else {
@@ -462,7 +462,7 @@ fn get_stat(stat: StatKind) -> Result<String, MainE> {
         StatKind::Governor => "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors",
         StatKind::Freq => "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies",
     };
-    read_to_string(p).map_err(|e| MainE::Write(e, p.to_string()))
+    read_to_string(p).map_err(|e| MainE::Write(e, p.to_owned()))
 }
 
 /// Sets either `Governor` or `Freq` stats
