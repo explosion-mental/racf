@@ -1,5 +1,8 @@
 //! # `racf`
-//! TODO thermal policies
+//! * TODO thermal policies
+//! * TODO think about handling devices without a battery (desktop)
+//!
+//! `grep` out the source code for some
 use std::fs::File;
 use std::fs::read_to_string;
 use std::io;
@@ -20,17 +23,18 @@ use psutil::process::processes;
 #[cfg(test)]
 mod tests;
 
-/// separates generic error mgs from original ones
+/// Used to separate generic error mgs from original ones, if any
 static SP: &str = "\n    ";
 
 /// Errors types to match against in main()
 #[derive(Debug, Error)]
 enum MainE {
-    /// general I/O errors from battery crate
+    /// general I/O and misc errors from battery crate
     #[error("Failed to fetch battery info:{SP}{0}")]
     Bat(#[from] battery::Error),
 
-    // miscellaneous i/o errors
+    /// miscellaneous i/o errors
+    //TODO shouldn't need this
     #[error("An io error ocurred:{SP}{0}")]
     Io(#[from] io::Error),
 
@@ -66,7 +70,7 @@ enum MainE {
     #[error("Config file: frequency '{0}' is invalid, use -l or --list to check avaliable frequencies.")]
     WrongFreq(u32),
 
-    /// Already running
+    /// Running more than **one instance** should not be avaliable
     #[error("Stopped. racf is already running at {0}.")]
     Running(u32),
 
@@ -86,8 +90,6 @@ enum MainE {
     #[error("Config File: In order to use a `frequency` the governor requires to be 'userspace'.")]
     NoUserspace,
 }
-
-// XXX are devices without a battery (desktop) valid systems to use this?
 
 /// Cli flags
 // consider a cli flag to accept a config file
@@ -150,13 +152,15 @@ struct Profile {
     /// minimum temperature to enable turbo boost
     mintemp: u32,
     /// governor to use, avaliable ones with -l
-    //TODO maybe do the same thing as with TurboKind, since there are only so many governors
+    //TODO maybe do the same thing as with TurboKind, since there are only so many governors,
+    //     requires checking if all (most) kernels support the same governors
     governor: String,
     /// frequency to use, only avaliable on `userspace`
     frequency: Option<u32>,
 }
 
 impl Config {
+    /// Returns the relevant profile for use
     pub fn current(&self, bat: &battery::Battery) -> &Profile {
         if bat.state() == battery::State::Charging {
             &self.ac
@@ -222,7 +226,7 @@ fn main() -> ExitCode {
     ExitCode::FAILURE
 }
 
-/// fallible version of main
+/// Fallible version of main
 fn try_main() -> Result<(), MainE> {
     cli_flags()?; // all cli flags exit()
 
@@ -286,7 +290,7 @@ fn parse_conf() -> Result<Config, MainE> {
     Ok(file)
 }
 
-/// parse cli flags
+/// Parse cli flags with clap
 fn cli_flags() -> Result<(), MainE> {
     let a = Cli::parse();
 
@@ -338,12 +342,12 @@ fn info() -> Result<(), MainE> {
     // wrap vectors into one `.zip`ped
     let vals = g.iter().zip(d.iter()).zip(f.iter()).enumerate();
 
-    //XXX is `String::with_capacity(vals.len())` and `push_str()` more performant?
     // collect formated strings
     let percpu_stats = vals.map(
         |(i, ((gov, driver), freq))|
             format!("CPU{}\t{}\t{}\t{}\n", i, gov, driver, freq)
         ).collect::<String>();
+    //XXX is `String::with_capacity(vals.len())` and `push_str()` more performant?
 
 
     println!(
