@@ -1,6 +1,6 @@
 [package]
 name = "racf"
-version = "1.6.5"
+version = "1.6.6"
 edition = "2021"
 license = "GPL-3.0"
 authors = [ "explosion-mental" ]
@@ -13,15 +13,15 @@ repository = "https://codeberg.org/explosion-mental/racf"
 
 [dependencies]
 getsys     = "1" # my own little lib to handle PerCpu stuff
-num_cpus   = "1.14"
-owo-colors = "3"
+num_cpus   = "1.15"
+owo-colors = "3.5"
 toml       = "0.7"
-thiserror  = "1"
+thiserror  = "1.0"
 # starship has forked the battery crate and updated it's dependencies (old nix crate had a vulnerability)
-battery = { version = "0.7", package = "starship-battery" }
-clap    = { version = "4.1", features = ["derive"] }
+battery = { version = "0.8", package = "starship-battery" }
+clap    = { version = "4.2", features = ["derive"] }
 serde   = { version = "1.0", features = ["derive"] }
-psutil  = { version = "3", default-features = false, features = [ "process" ] }
+psutil  = { version = "3.2", default-features = false, features = [ "process" ] }
 
 [[bin]]
 name = "racf"
