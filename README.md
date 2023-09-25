@@ -1,5 +1,4 @@
-racf - auto cpu frequencer
-==========================
+# racf - auto cpu frequencer
 [![crates io](https://img.shields.io/crates/v/racf?style=flat-square&color=red)](https://crates.io/crates/racf)
 [![downloads](https://img.shields.io/crates/d/racf?style=flat-square&color=yellow)](https://crates.io/crates/getsys)
 [![license](https://img.shields.io/crates/l/racf?style=flat-square)](https://codeberg.org/explosion-mental/racf/src/branch/main/LICENSE)
@@ -28,9 +27,7 @@ A rewrite of [sacf](https://github.com/explosion-mental/sacf) in rust.
 
 Reference: [cpufreq](https://www.kernel.org/doc/html/v4.14/admin-guide/pm/cpufreq.html)
 
-Usage
------
-
+## Usage
 ```sh
 racf --help
 ```
@@ -40,8 +37,7 @@ for `racf` to stay in the background. This way you can manually tweak your
 system with the help of `racf` whenever you actually need it (might be useful
 to put this in the status bar).
 
-Building and Installing
------------------------
+## Building and Installing
 Currently you need to build it from source (not that big) with cargo
 and then, optionally, move it to your PATH. In the example bellow I use
 `/usr/local/bin/` as the PREFIX (target) directory.
@@ -52,8 +48,7 @@ cp -f ./target/release/racf /usr/local/bin/
 ```
 Alternatively use `cargo install racf`
 
-Configuration
--------------
+## Configuration
 This repo contains [racf.toml](./racf.toml) configuration example
 with the respective documentation for it's parameters.
 
@@ -71,7 +66,12 @@ cp -f racf.toml /etc/racf.toml
 ```
 or simply copy and paste it.
 
-TODO
-----
+## TODO
 - Implement `user space` for thermal controls (just like thermald) [seems a bit complicated]
 - Allow to define profiles with an `Option`al battery percentage value
+
+## Related
+- [auto-clock-speed](https://github.com/JakeRoggenbuck/auto-clock-speed)
+- [sacf - Simple Auto CPU Frequencer](https://github.com/explosion-mental/sacf)
+- [yablo - Yet Another Battery Linux Optimizer](https://github.com/sebastian-xyz/yablo)
+- [TLP - Optimize Linux Laptop Battery Life](https://github.com/linrunner/TLP)
