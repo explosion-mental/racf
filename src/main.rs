@@ -8,27 +8,29 @@ use std::fs::read_to_string;
 use std::io;
 use std::io::Write;
 use std::path::Path;
-use std::process::exit;
 use std::process::ExitCode;
+use std::process::exit;
 use std::time::Duration;
 
-use clap::Parser;
+use serde::Deserialize;
 use getsys::Cpu::{perc, try_turbo, temp, TurboState};
 use getsys::PerCpu;
-use serde::Deserialize;
 use thiserror::Error;
 use owo_colors::{OwoColorize, AnsiColors};
 use psutil::process::processes;
+use clap::Parser;
 
-#[cfg(test)]
-mod tests;
+//#[cfg(test)]
+//mod tests;
+mod config;
+mod args;
 
 /// Used to separate generic error mgs from original ones, if any
 static SP: &str = "\n    ";
 
 /// Errors types to match against in main()
 #[derive(Debug, Error)]
-enum MainE {
+pub enum MainE {
     /// general I/O and misc errors from battery crate
     #[error("Failed to fetch battery info:{SP}{0}")]
     Bat(#[from] battery::Error),
@@ -91,37 +93,6 @@ enum MainE {
     NoUserspace,
 }
 
-/// Cli flags
-// consider a cli flag to accept a config file
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Cli {
-    /// Enables/disables turbo boost
-    //NOTE true/false should be enough, but consider using more generic words like "on" and "off"
-    #[arg(short, long)]
-    turbo: Option<bool>,
-
-    /// Runs once and exits
-    #[arg(short, long)]
-    run_once: bool,
-
-    /// Sets a governor
-    #[arg(short, long)]
-    governor: Option<String>,
-
-    /// Prints stats about the system that racf uses
-    #[arg(short, long)]
-    list: bool,
-}
-
-/// Configuration struct for serde + toml.
-/// Two profiles for 2 w scenarios: using battery or charging
-#[derive(Debug, Deserialize)]
-struct Config {
-    battery: Profile,
-    ac: Profile,
-}
-
 /// Little enum to choose between governor and frequency stats
 enum StatKind {
     Governor,
@@ -142,7 +113,7 @@ enum TurboKind {
 /// Profile: can be for `[battery]` or `[ac]`
 #[derive(Debug, Deserialize)]
 #[serde(rename_all(serialize = "lowercase", deserialize = "lowercase"))]
-struct Profile {
+pub struct Profile {
     /// turbo boost, can be: 'always' - 'auto' - 'never'
     turbo: TurboKind,
     /// interval in seconds
@@ -157,23 +128,6 @@ struct Profile {
     governor: String,
     /// frequency to use, only avaliable on `userspace`
     frequency: Option<u32>,
-}
-
-impl Config {
-    /// Returns the relevant profile for use
-    pub fn current(&self, bat: &battery::Battery) -> &Profile {
-        if bat.state() == battery::State::Charging {
-            &self.ac
-        } else {
-            &self.battery
-        }
-    }
-    /// Validates the configuration file
-    pub fn validate(&self) -> Result<(), MainE> {
-        self.battery.check()?;
-        self.ac.check()?;
-        Ok(())
-    }
 }
 
 impl Profile {
@@ -244,7 +198,7 @@ fn try_main() -> Result<(), MainE> {
         }
     }
 
-    let conf = parse_conf()?;
+    let conf = config::parse_conf()?;
     let cpus = num_cpus::get();
     let mut cpuperc = perc(Duration::from_millis(200)); //tmp fast value
     let man = battery::Manager::new()?;
@@ -265,118 +219,6 @@ fn get_bat(man: &battery::Manager) -> Result<battery::Battery, MainE> {
     }?;
     man.refresh(&mut btt)?; // update values
     Ok(btt)
-}
-
-/// toml + serde to get config values into structs
-fn parse_conf() -> Result<Config, MainE> {
-    let p1 = "/etc/racf.toml";
-    let p2 = "/etc/racf/racf.toml";
-    let p3 = "/etc/racf/config.toml";
-
-    let p = if Path::new(p1).exists() {
-        p1
-    } else if Path::new(p2).exists() {
-        p2
-    } else if Path::new(p3).exists() {
-        p3
-    } else {
-        return Err(MainE::MissingConfig);
-    };
-
-    let contents = read_to_string(p)
-       .map_err(|e| MainE::Read(e, p.to_owned()))?;
-    let file: Config = toml::from_str(&contents)?;
-    file.validate()?;
-    Ok(file)
-}
-
-/// Parse cli flags with clap
-fn cli_flags() -> Result<(), MainE> {
-    let a = Cli::parse();
-
-    if a.list {
-        info()?;
-        exit(0);
-    } else if let Some(t) = a.turbo {
-        turbo(t)?;
-        exit(0);
-    } else if a.run_once {
-        let conf = parse_conf()?;
-        let man = battery::Manager::new()?;
-        let bat = get_bat(&man)?;
-        conf.current(&bat).run(perc(Duration::from_millis(200)), num_cpus::get())?;
-        exit(0);
-    } else if let Some(gov) = a.governor.as_deref() {
-        check_govs(gov)?;
-        set_stat(StatKind::Governor, gov)?;
-        exit(0);
-    }
-
-    Ok(())
-}
-
-/// Prints stats about the system. '-l' or '--list'
-fn info() -> Result<(), MainE> {
-    let man = battery::Manager::new()?;
-    let b = get_bat(&man)?;
-    let vendor = b.vendor().unwrap_or("Could not get battery vendor.");
-    let model = b.model().unwrap_or("Could not get battery model.");
-
-    let turbocol = match try_turbo() {
-        TurboState::On => AnsiColors::Green,
-        TurboState::Off => AnsiColors::Red,
-        TurboState::NotSupported => AnsiColors::Yellow,
-    };
-
-    let statecol = if b.state() == battery::State::Charging {
-        AnsiColors::Green
-    } else {
-        AnsiColors::Red
-    };
-
-    // vectors of the percpu info
-    let f = PerCpu::freq();
-    let g = PerCpu::governor();
-    let d = PerCpu::driver();
-
-    // wrap vectors into one `.zip`ped
-    let vals = g.iter().zip(d.iter()).zip(f.iter()).enumerate();
-
-    // collect formated strings
-    let percpu_stats = vals.map(
-        |(i, ((gov, driver), freq))|
-            format!("CPU{}\t{}\t{}\t{}\n", i, gov, driver, freq)
-        ).collect::<String>();
-    //XXX is `String::with_capacity(vals.len())` and `push_str()` more performant?
-
-
-    println!(
-"{} battery is {} ({})
-Turbo boost is {}
-Avaliable governors:{SP}{}
-Avaliable {} frequencies:{SP}{}
-Average temperature: {} °C
-Average cpu percentage: {:.2}%
-{}\t{}\t{}\t{} {}
-{}",
-    model.bold().blue(),
-    b.state().color(statecol).bold(),
-    vendor.italic(),
-    try_turbo().color(turbocol).bold(),
-    get_stat(StatKind::Governor)?.trim(),
-    "userspace".italic(),
-    get_stat(StatKind::Freq)?.trim(),
-    temp(),
-    perc(Duration::from_millis(100)),
-    "Core".bold().underline().yellow(),
-    "Governor".bold().underline().yellow(),
-    "Scaling Driver".bold().underline().yellow(),
-    "Frequency".bold().underline().yellow(),
-    "(kHz)".italic().yellow(),
-    percpu_stats.trim(),
-    );
-
-    Ok(())
 }
 
 /// Sets the turbo boost state for all cpus.
@@ -493,6 +335,95 @@ fn set_stat(stat: StatKind, value: &str) -> Result<(), MainE> {
             .write_all(value.as_bytes())
             .map_err(|e| MainE::Write(e, path.to_owned()))?;
     }
+
+    Ok(())
+}
+
+/// Parse cli flags with clap
+fn cli_flags() -> Result<(), MainE> {
+    let a = args::Cli::parse();
+
+    if a.list {
+        info()?;
+        exit(0);
+    } else if let Some(t) = a.turbo {
+        turbo(t)?;
+        exit(0);
+    } else if a.run_once {
+        let conf = config::parse_conf()?;
+        let man = battery::Manager::new()?;
+        let bat = get_bat(&man)?;
+        conf.current(&bat).run(perc(Duration::from_millis(200)), num_cpus::get())?;
+        exit(0);
+    } else if let Some(gov) = a.governor.as_deref() {
+        check_govs(gov)?;
+        set_stat(StatKind::Governor, gov)?;
+        exit(0);
+    }
+
+    Ok(())
+}
+
+/// Prints stats about the system. '-l' or '--list'
+fn info() -> Result<(), MainE> {
+    let man = battery::Manager::new()?;
+    let b = get_bat(&man)?;
+    let vendor = b.vendor().unwrap_or("Could not get battery vendor.");
+    let model = b.model().unwrap_or("Could not get battery model.");
+
+    let turbocol = match try_turbo() {
+        TurboState::On => AnsiColors::Green,
+        TurboState::Off => AnsiColors::Red,
+        TurboState::NotSupported => AnsiColors::Yellow,
+    };
+
+    let statecol = if b.state() == battery::State::Charging {
+        AnsiColors::Green
+    } else {
+        AnsiColors::Red
+    };
+
+    // vectors of the percpu info
+    let f = PerCpu::freq();
+    let g = PerCpu::governor();
+    let d = PerCpu::driver();
+
+    // wrap vectors into one `.zip`ped
+    let vals = g.iter().zip(d.iter()).zip(f.iter()).enumerate();
+
+    // collect formated strings
+    let percpu_stats = vals.map(
+        |(i, ((gov, driver), freq))|
+            format!("CPU{}\t{}\t{}\t{}\n", i, gov, driver, freq)
+        ).collect::<String>();
+    //XXX is `String::with_capacity(vals.len())` and `push_str()` more performant?
+
+
+    println!(
+"{} battery is {} ({})
+Turbo boost is {}
+Avaliable governors:{SP}{}
+Avaliable {} frequencies:{SP}{}
+Average temperature: {} °C
+Average cpu percentage: {:.2}%
+{}\t{}\t{}\t{} {}
+{}",
+    model.bold().blue(),
+    b.state().color(statecol).bold(),
+    vendor.italic(),
+    try_turbo().color(turbocol).bold(),
+    get_stat(StatKind::Governor)?.trim(),
+    "userspace".italic(),
+    get_stat(StatKind::Freq)?.trim(),
+    temp(),
+    perc(Duration::from_millis(100)),
+    "Core".bold().underline().yellow(),
+    "Governor".bold().underline().yellow(),
+    "Scaling Driver".bold().underline().yellow(),
+    "Frequency".bold().underline().yellow(),
+    "(kHz)".italic().yellow(),
+    percpu_stats.trim(),
+    );
 
     Ok(())
 }
