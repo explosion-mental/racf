@@ -13,9 +13,9 @@ repository = "https://codeberg.org/explosion-mental/racf"
 
 [dependencies]
 getsys     = "1" # my own little lib to handle PerCpu stuff
-num_cpus   = "1.15"
+num_cpus   = "1.16"
 owo-colors = "3.5"
-toml       = "0.7"
+toml       = "0.8"
 thiserror  = "1.0"
 # starship has forked the battery crate and updated it's dependencies (old nix crate had a vulnerability)
 battery = { version = "0.8", package = "starship-battery" }
