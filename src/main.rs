@@ -20,8 +20,6 @@ use owo_colors::{OwoColorize, AnsiColors};
 use psutil::process::processes;
 use clap::Parser;
 
-//#[cfg(test)]
-//mod tests;
 mod config;
 mod args;
 
